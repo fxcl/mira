@@ -4,18 +4,27 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
+	"time"
+
 	"mira/anima/dal"
 	"mira/anima/datetime"
 	"mira/app/dto"
 	"mira/common/uuid"
 	"mira/config"
-	"strings"
-	"time"
 
 	rediskey "mira/common/types/redis-key"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
+)
+
+var (
+	ErrPleaseLoginFirst      = errors.New("please log in first")
+	ErrAuthFormat            = errors.New("authorization format error")
+	ErrTokenFormat           = errors.New("token format error")
+	ErrTokenNotValidYet      = errors.New("token not yet valid")
+	ErrTokenValidationFailed = errors.New("token validation failed")
 )
 
 // SysUserClaim represents the authorization claims.
@@ -69,8 +78,8 @@ func RefreshToken(ctx *gin.Context, user dto.UserTokenResponse) {
 	}, time.Minute*time.Duration(config.Data.Token.ExpireTime))
 }
 
-// GetAuhtUser parses the token.
-func GetAuhtUser(ctx *gin.Context) (*UserTokenResponse, error) {
+// GetAuthUser parses the token.
+func GetAuthUser(ctx *gin.Context) (*UserTokenResponse, error) {
 	tokenKey, err := getUserTokenKey(ctx)
 	if err != nil {
 		return nil, err
@@ -99,12 +108,12 @@ func DeleteToken(ctx *gin.Context) error {
 func getUserTokenKey(ctx *gin.Context) (string, error) {
 	authorization := ctx.GetHeader(config.Data.Token.Header)
 	if authorization == "" {
-		return "", errors.New("please log in first")
+		return "", ErrPleaseLoginFirst
 	}
 
 	tokenSplit := strings.Split(authorization, " ")
 	if len(tokenSplit) != 2 || tokenSplit[0] != "Bearer" {
-		return "", errors.New("authorization format error")
+		return "", ErrAuthFormat
 	}
 
 	token, err := jwt.ParseWithClaims(tokenSplit[1], &SysUserClaim{}, func(token *jwt.Token) (interface{}, error) {
@@ -113,12 +122,12 @@ func getUserTokenKey(ctx *gin.Context) (string, error) {
 	if err != nil {
 		if ve, ok := err.(*jwt.ValidationError); ok {
 			if ve.Errors&jwt.ValidationErrorMalformed != 0 {
-				return "", errors.New("token format error")
+				return "", ErrTokenFormat
 			}
 			if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
-				return "", errors.New("token not yet valid")
+				return "", ErrTokenNotValidYet
 			}
-			return "", errors.New("token validation failed")
+			return "", ErrTokenValidationFailed
 		}
 		return "", err
 	}
@@ -127,7 +136,7 @@ func getUserTokenKey(ctx *gin.Context) (string, error) {
 		return rediskey.UserTokenKey + claims.Uuid, nil
 	}
 
-	return "", errors.New("token validation failed")
+	return "", ErrTokenValidationFailed
 }
 
 type UserTokenResponse struct {

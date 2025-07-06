@@ -1,18 +1,18 @@
 package validator
 
 import (
-	"errors"
 	"mira/app/dto"
+	"mira/common/xerrors"
 )
 
 // CreateDictTypeValidator validates the request to create a dictionary type.
 func CreateDictTypeValidator(param dto.CreateDictTypeRequest) error {
 	if param.DictName == "" {
-		return errors.New("please enter the dictionary name")
+		return xerrors.ErrDictNameEmpty
 	}
 
 	if param.DictType == "" {
-		return errors.New("please enter the dictionary type")
+		return xerrors.ErrDictTypeEmpty
 	}
 
 	return nil
@@ -21,15 +21,15 @@ func CreateDictTypeValidator(param dto.CreateDictTypeRequest) error {
 // UpdateDictTypeValidator validates the request to update a dictionary type.
 func UpdateDictTypeValidator(param dto.UpdateDictTypeRequest) error {
 	if param.DictId <= 0 {
-		return errors.New("parameter error")
+		return xerrors.ErrParam
 	}
 
 	if param.DictName == "" {
-		return errors.New("please enter the dictionary name")
+		return xerrors.ErrDictNameEmpty
 	}
 
 	if param.DictType == "" {
-		return errors.New("please enter the dictionary type")
+		return xerrors.ErrDictTypeEmpty
 	}
 
 	return nil
@@ -38,11 +38,11 @@ func UpdateDictTypeValidator(param dto.UpdateDictTypeRequest) error {
 // CreateDictDataValidator validates the request to create dictionary data.
 func CreateDictDataValidator(param dto.CreateDictDataRequest) error {
 	if param.DictLabel == "" {
-		return errors.New("please enter the data label")
+		return xerrors.ErrDictLabelEmpty
 	}
 
 	if param.DictValue == "" {
-		return errors.New("please enter the data key value")
+		return xerrors.ErrDictValueEmpty
 	}
 
 	return nil
@@ -51,15 +51,15 @@ func CreateDictDataValidator(param dto.CreateDictDataRequest) error {
 // UpdateDictDataValidator validates the request to update dictionary data.
 func UpdateDictDataValidator(param dto.UpdateDictDataRequest) error {
 	if param.DictCode <= 0 {
-		return errors.New("parameter error")
+		return xerrors.ErrParam
 	}
 
 	if param.DictLabel == "" {
-		return errors.New("please enter the data label")
+		return xerrors.ErrDictLabelEmpty
 	}
 
 	if param.DictValue == "" {
-		return errors.New("please enter the data key value")
+		return xerrors.ErrDictValueEmpty
 	}
 
 	return nil

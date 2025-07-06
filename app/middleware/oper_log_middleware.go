@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"time"
+
 	"mira/anima/datetime"
 	"mira/anima/response"
 	"mira/app/dto"
@@ -12,7 +14,6 @@ import (
 	ipaddress "mira/common/ip-address"
 	responsewriter "mira/common/response-writer"
 	"mira/common/types/constant"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,7 +21,7 @@ import (
 // OperLogMiddleware is a middleware for operation logs.
 // title: title of the operation module
 // businessType: operation type, constant.REQUEST_BUSINESS_TYPE_*
-func OperLogMiddleware(title string, businessType int) gin.HandlerFunc {
+func OperLogMiddleware(operLogService *service.OperLogService, title string, businessType int) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var operName, deptName string
 
@@ -97,6 +98,6 @@ func OperLogMiddleware(title string, businessType int) gin.HandlerFunc {
 		duration := time.Since(requestStartTime)
 		sysOperLog.CostTime = int(duration.Milliseconds())
 
-		(&service.OperLogService{}).CreateSysOperLog(sysOperLog)
+		operLogService.CreateSysOperLog(sysOperLog)
 	}
 }

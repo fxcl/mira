@@ -1,24 +1,24 @@
 package validator
 
 import (
-	"errors"
 	"mira/app/dto"
 	"mira/common/types/regexp"
 	"mira/common/utils"
+	"mira/common/xerrors"
 )
 
 // UpdateProfileValidator validates the request to update a user's profile.
 func UpdateProfileValidator(param dto.UpdateProfileRequest) error {
 	if param.NickName == "" {
-		return errors.New("please enter the user nickname")
+		return xerrors.ErrUserNicknameEmpty
 	}
 
 	if !utils.CheckRegex(regexp.EMAIL, param.Email) {
-		return errors.New("incorrect email format")
+		return xerrors.ErrUserEmailFormat
 	}
 
 	if !utils.CheckRegex(regexp.PHONE, param.Phonenumber) {
-		return errors.New("incorrect mobile number format")
+		return xerrors.ErrUserPhoneFormat
 	}
 
 	return nil
@@ -27,11 +27,11 @@ func UpdateProfileValidator(param dto.UpdateProfileRequest) error {
 // UserProfileUpdatePwdValidator validates the request to update a user's password.
 func UserProfileUpdatePwdValidator(param dto.UserProfileUpdatePwdRequest) error {
 	if param.OldPassword == "" {
-		return errors.New("please enter the old password")
+		return xerrors.ErrUserOldPasswordEmpty
 	}
 
 	if param.NewPassword == "" {
-		return errors.New("please enter the new password")
+		return xerrors.ErrUserNewPasswordEmpty
 	}
 
 	return nil
@@ -40,23 +40,23 @@ func UserProfileUpdatePwdValidator(param dto.UserProfileUpdatePwdRequest) error 
 // CreateUserValidator validates the request to create a user.
 func CreateUserValidator(param dto.CreateUserRequest) error {
 	if param.NickName == "" {
-		return errors.New("please enter the user nickname")
+		return xerrors.ErrUserNicknameEmpty
 	}
 
 	if param.UserName == "" {
-		return errors.New("please enter the username")
+		return xerrors.ErrUserNameEmpty
 	}
 
 	if param.Password == "" {
-		return errors.New("please enter the user password")
+		return xerrors.ErrUserPasswordEmpty
 	}
 
 	if param.Phonenumber != "" && !utils.CheckRegex(regexp.PHONE, param.Phonenumber) {
-		return errors.New("incorrect mobile number format")
+		return xerrors.ErrUserPhoneFormat
 	}
 
 	if param.Email != "" && !utils.CheckRegex(regexp.EMAIL, param.Email) {
-		return errors.New("incorrect email account format")
+		return xerrors.ErrUserEmailFormat
 	}
 
 	return nil
@@ -65,19 +65,19 @@ func CreateUserValidator(param dto.CreateUserRequest) error {
 // UpdateUserValidator validates the request to update a user.
 func UpdateUserValidator(param dto.UpdateUserRequest) error {
 	if param.UserId <= 0 {
-		return errors.New("parameter error")
+		return xerrors.ErrParam
 	}
 
 	if param.NickName == "" {
-		return errors.New("please enter the user nickname")
+		return xerrors.ErrUserNicknameEmpty
 	}
 
 	if param.Phonenumber != "" && !utils.CheckRegex(regexp.PHONE, param.Phonenumber) {
-		return errors.New("incorrect mobile number format")
+		return xerrors.ErrUserPhoneFormat
 	}
 
 	if param.Email != "" && !utils.CheckRegex(regexp.EMAIL, param.Email) {
-		return errors.New("incorrect email account format")
+		return xerrors.ErrUserEmailFormat
 	}
 
 	return nil
@@ -86,11 +86,11 @@ func UpdateUserValidator(param dto.UpdateUserRequest) error {
 // RemoveUserValidator validates the request to remove a user.
 func RemoveUserValidator(userIds []int, authUserId int) error {
 	if utils.Contains(userIds, 1) {
-		return errors.New("the super administrator cannot be deleted")
+		return xerrors.ErrUserSuperAdminDelete
 	}
 
 	if utils.Contains(userIds, authUserId) {
-		return errors.New("the current user cannot be deleted")
+		return xerrors.ErrUserCurrentUserDelete
 	}
 
 	return nil
@@ -99,11 +99,11 @@ func RemoveUserValidator(userIds []int, authUserId int) error {
 // ChangeUserStatusValidator validates the request to change the user status.
 func ChangeUserStatusValidator(param dto.UpdateUserRequest) error {
 	if param.UserId <= 0 {
-		return errors.New("parameter error")
+		return xerrors.ErrParam
 	}
 
 	if param.Status == "" {
-		return errors.New("please select a status")
+		return xerrors.ErrUserStatusEmpty
 	}
 
 	return nil
@@ -112,11 +112,11 @@ func ChangeUserStatusValidator(param dto.UpdateUserRequest) error {
 // ResetUserPwdValidator validates the request to reset a user's password.
 func ResetUserPwdValidator(param dto.UpdateUserRequest) error {
 	if param.UserId <= 0 {
-		return errors.New("parameter error")
+		return xerrors.ErrParam
 	}
 
 	if param.Password == "" {
-		return errors.New("please enter the user password")
+		return xerrors.ErrUserPasswordEmpty
 	}
 
 	return nil
@@ -125,19 +125,19 @@ func ResetUserPwdValidator(param dto.UpdateUserRequest) error {
 // ImportUserValidator validates the request to import a user.
 func ImportUserValidator(param dto.CreateUserRequest) error {
 	if param.NickName == "" {
-		return errors.New("please enter the user nickname")
+		return xerrors.ErrUserNicknameEmpty
 	}
 
 	if param.UserName == "" {
-		return errors.New("please enter the username")
+		return xerrors.ErrUserNameEmpty
 	}
 
 	if param.Phonenumber != "" && !utils.CheckRegex(regexp.PHONE, param.Phonenumber) {
-		return errors.New("incorrect mobile number format")
+		return xerrors.ErrUserPhoneFormat
 	}
 
 	if param.Email != "" && !utils.CheckRegex(regexp.EMAIL, param.Email) {
-		return errors.New("incorrect email account format")
+		return xerrors.ErrUserEmailFormat
 	}
 
 	return nil

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"time"
+
 	"mira/anima/datetime"
 	"mira/anima/response"
 	"mira/app/dto"
@@ -11,13 +13,12 @@ import (
 	ipaddress "mira/common/ip-address"
 	responsewriter "mira/common/response-writer"
 	"mira/common/types/constant"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 // LogininforMiddleware records login information.
-func LogininforMiddleware() gin.HandlerFunc {
+func LogininforMiddleware(logininforService *service.LogininforService) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// Because the request body will be consumed after reading, to avoid EOF errors,
 		// the request body needs to be cached and reassigned to ctx.Request.Body after each use.
@@ -67,6 +68,6 @@ func LogininforMiddleware() gin.HandlerFunc {
 		}
 		logininfor.Msg = body.Msg
 
-		(&service.LogininforService{}).CreateSysLogininfor(logininfor)
+		logininforService.CreateSysLogininfor(logininfor)
 	}
 }

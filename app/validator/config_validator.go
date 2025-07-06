@@ -1,22 +1,22 @@
 package validator
 
 import (
-	"errors"
 	"mira/app/dto"
+	"mira/common/xerrors"
 )
 
 // CreateConfigValidator validates the request to create a configuration.
 func CreateConfigValidator(param dto.CreateConfigRequest) error {
 	if param.ConfigName == "" {
-		return errors.New("please enter the parameter name")
+		return xerrors.ErrConfigNameEmpty
 	}
 
 	if param.ConfigKey == "" {
-		return errors.New("please enter the parameter key")
+		return xerrors.ErrConfigKeyEmpty
 	}
 
 	if param.ConfigValue == "" {
-		return errors.New("please enter the parameter value")
+		return xerrors.ErrConfigValueEmpty
 	}
 
 	return nil
@@ -25,19 +25,19 @@ func CreateConfigValidator(param dto.CreateConfigRequest) error {
 // UpdateConfigValidator validates the request to update a configuration.
 func UpdateConfigValidator(param dto.UpdateConfigRequest) error {
 	if param.ConfigId <= 0 {
-		return errors.New("parameter error")
+		return xerrors.ErrParam
 	}
 
 	if param.ConfigName == "" {
-		return errors.New("please enter the parameter name")
+		return xerrors.ErrConfigNameEmpty
 	}
 
 	if param.ConfigKey == "" {
-		return errors.New("please enter the parameter key")
+		return xerrors.ErrConfigKeyEmpty
 	}
 
 	if param.ConfigValue == "" {
-		return errors.New("please enter the parameter value")
+		return xerrors.ErrConfigValueEmpty
 	}
 
 	return nil

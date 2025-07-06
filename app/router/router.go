@@ -1,6 +1,8 @@
 package router
 
 import (
+	"mira/app"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -8,5 +10,8 @@ import (
 func Register(server *gin.Engine) {
 	api := server.Group("/api")
 
-	RegisterAdminGroupApi(api)
+	// Create a new app container
+	container := app.NewAppContainer()
+
+	RegisterAdminGroupApi(api, container)
 }

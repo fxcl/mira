@@ -2,18 +2,20 @@ package validator
 
 import (
 	"errors"
+
 	"mira/app/dto"
 	"mira/common/utils"
+	"mira/common/xerrors"
 )
 
 // CreateRoleValidator validates the request to create a role.
 func CreateRoleValidator(param dto.CreateRoleRequest) error {
 	if param.RoleName == "" {
-		return errors.New("please enter the role name")
+		return xerrors.ErrRoleNameEmpty
 	}
 
 	if param.RoleKey == "" {
-		return errors.New("please enter the permission string")
+		return xerrors.ErrRoleKeyEmpty
 	}
 
 	return nil
@@ -22,15 +24,15 @@ func CreateRoleValidator(param dto.CreateRoleRequest) error {
 // UpdateRoleValidator validates the request to update a role.
 func UpdateRoleValidator(param dto.UpdateRoleRequest) error {
 	if param.RoleId <= 0 {
-		return errors.New("parameter error")
+		return xerrors.ErrParam
 	}
 
 	if param.RoleName == "" {
-		return errors.New("please enter the role name")
+		return xerrors.ErrRoleNameEmpty
 	}
 
 	if param.RoleKey == "" {
-		return errors.New("please enter the permission string")
+		return xerrors.ErrRoleKeyEmpty
 	}
 
 	return nil
@@ -39,7 +41,7 @@ func UpdateRoleValidator(param dto.UpdateRoleRequest) error {
 // RemoveRoleValidator validates the request to remove a role.
 func RemoveRoleValidator(roleIds []int, roleId int, roleName string) error {
 	if utils.Contains(roleIds, 1) {
-		return errors.New("the super administrator cannot be deleted")
+		return xerrors.ErrRoleSuperAdminDelete
 	}
 
 	if utils.Contains(roleIds, roleId) {
@@ -52,11 +54,11 @@ func RemoveRoleValidator(roleIds []int, roleId int, roleName string) error {
 // ChangeRoleStatusValidator validates the request to change the role status.
 func ChangeRoleStatusValidator(param dto.UpdateRoleRequest) error {
 	if param.RoleId <= 0 {
-		return errors.New("parameter error")
+		return xerrors.ErrParam
 	}
 
 	if param.Status == "" {
-		return errors.New("please select a status")
+		return xerrors.ErrRoleStatusEmpty
 	}
 
 	return nil

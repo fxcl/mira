@@ -1,30 +1,28 @@
 package router
 
 import (
+	"mira/app"
 	"mira/app/controller"
-	monitorcontroller "mira/app/controller/monitor"
-	systemcontroller "mira/app/controller/system"
 	"mira/app/middleware"
-	"mira/app/service"
 	"mira/common/types/constant"
 
 	"github.com/gin-gonic/gin"
 )
 
 // Admin router group
-func RegisterAdminGroupApi(api *gin.RouterGroup) {
+func RegisterAdminGroupApi(api *gin.RouterGroup, container *app.AppContainer) {
 	api.Use(middleware.Cors()) // CORS middleware
 
-	registerAuthRoutes(api)
-	registerSystemRoutes(api)
-	registerMonitorRoutes(api)
+	registerAuthRoutes(api, container)
+	registerSystemRoutes(api, container)
+	registerMonitorRoutes(api, container)
 }
 
-func registerAuthRoutes(api *gin.RouterGroup) {
+func registerAuthRoutes(api *gin.RouterGroup, container *app.AppContainer) {
 	authController := &controller.AuthController{}
 	api.GET("/captchaImage", authController.CaptchaImage)
 	api.POST("/register", authController.Register)
-	api.POST("/login", middleware.LogininforMiddleware(), authController.Login)
+	api.POST("/login", container.LogininforMiddleware(), authController.Login)
 	api.POST("/logout", authController.Logout)
 
 	// Enable authentication middleware. The following routes require authentication.
@@ -34,161 +32,135 @@ func registerAuthRoutes(api *gin.RouterGroup) {
 	api.GET("/getRouters", authController.GetRouters)
 }
 
-func registerSystemRoutes(api *gin.RouterGroup) {
-	// Instantiate services
-	userService := &service.UserService{}
-	deptService := &service.DeptService{}
-	roleService := &service.RoleService{}
-	postService := &service.PostService{}
-	menuService := &service.MenuService{}
-	configService := &service.ConfigService{}
-	dictTypeService := &service.DictTypeService{}
-	dictDataService := &service.DictDataService{}
-
-	// Instantiate controllers with dependencies
-	userController := systemcontroller.NewUserController(userService, deptService, roleService, postService, configService)
-	roleController := systemcontroller.NewRoleController(roleService, deptService, userService)
-	menuController := systemcontroller.NewMenuController(menuService)
-	deptController := systemcontroller.NewDeptController(deptService, userService)
-	postController := systemcontroller.NewPostController(postService)
-	dictTypeController := systemcontroller.NewDictTypeController(dictTypeService)
-	dictDataController := systemcontroller.NewDictDataController(dictDataService)
-	configController := systemcontroller.NewConfigController(configService)
-
+func registerSystemRoutes(api *gin.RouterGroup, container *app.AppContainer) {
 	// User Routes
 	userGroup := api.Group("/system/user")
 	{
-		userGroup.GET("/profile", userController.GetProfile)
-		userGroup.PUT("/profile", userController.UpdateProfile)
-		userGroup.PUT("/profile/updatePwd", userController.UserProfileUpdatePwd)
-		userGroup.POST("/profile/avatar", userController.UserProfileUpdateAvatar)
-		userGroup.GET("/deptTree", middleware.HasPerm("system:user:list"), userController.DeptTree)
-		userGroup.GET("/list", middleware.HasPerm("system:user:list"), userController.List)
-		userGroup.GET("/", middleware.HasPerm("system:user:query"), userController.Detail)
-		userGroup.GET("/:userId", middleware.HasPerm("system:user:query"), userController.Detail)
-		userGroup.GET("/authRole/:userId", middleware.HasPerm("system:user:query"), userController.AuthRole)
-		userGroup.POST("", middleware.HasPerm("system:user:add"), middleware.OperLogMiddleware("Add User", constant.REQUEST_BUSINESS_TYPE_INSERT), userController.Create)
-		userGroup.PUT("", middleware.HasPerm("system:user:edit"), middleware.OperLogMiddleware("Update User", constant.REQUEST_BUSINESS_TYPE_UPDATE), userController.Update)
-		userGroup.DELETE("/:userIds", middleware.HasPerm("system:user:remove"), middleware.OperLogMiddleware("Delete User", constant.REQUEST_BUSINESS_TYPE_DELETE), userController.Remove)
-		userGroup.PUT("/changeStatus", middleware.HasPerm("system:user:edit"), middleware.OperLogMiddleware("Modify User Status", constant.REQUEST_BUSINESS_TYPE_UPDATE), userController.ChangeStatus)
-		userGroup.PUT("/resetPwd", middleware.HasPerm("system:user:edit"), middleware.OperLogMiddleware("Modify User Password", constant.REQUEST_BUSINESS_TYPE_UPDATE), userController.ResetPwd)
-		userGroup.PUT("/authRole", middleware.HasPerm("system:user:edit"), middleware.OperLogMiddleware("User Authorized Role", constant.REQUEST_BUSINESS_TYPE_UPDATE), userController.AddAuthRole)
-		userGroup.POST("/export", middleware.HasPerm("system:user:export"), middleware.OperLogMiddleware("Export User", constant.REQUEST_BUSINESS_TYPE_EXPORT), userController.Export)
-		userGroup.POST("/importData", middleware.HasPerm("system:user:import"), middleware.OperLogMiddleware("Import User", constant.REQUEST_BUSINESS_TYPE_IMPORT), userController.ImportData)
-		userGroup.POST("/importTemplate", middleware.OperLogMiddleware("Import User Template", constant.REQUEST_BUSINESS_TYPE_IMPORT), userController.ImportTemplate)
+		userGroup.GET("/profile", container.UserController.GetProfile)
+		userGroup.PUT("/profile", container.UserController.UpdateProfile)
+		userGroup.PUT("/profile/updatePwd", container.UserController.UserProfileUpdatePwd)
+		userGroup.POST("/profile/avatar", container.UserController.UserProfileUpdateAvatar)
+		userGroup.GET("/deptTree", container.HasPerm("system:user:list"), container.UserController.DeptTree)
+		userGroup.GET("/list", container.HasPerm("system:user:list"), container.UserController.List)
+		userGroup.GET("/", container.HasPerm("system:user:query"), container.UserController.Detail)
+		userGroup.GET("/:userId", container.HasPerm("system:user:query"), container.UserController.Detail)
+		userGroup.GET("/authRole/:userId", container.HasPerm("system:user:query"), container.UserController.AuthRole)
+		userGroup.POST("", container.HasPerm("system:user:add"), container.OperLogMiddleware("Add User", constant.REQUEST_BUSINESS_TYPE_INSERT), container.UserController.Create)
+		userGroup.PUT("", container.HasPerm("system:user:edit"), container.OperLogMiddleware("Update User", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.UserController.Update)
+		userGroup.DELETE("/:userIds", container.HasPerm("system:user:remove"), container.OperLogMiddleware("Delete User", constant.REQUEST_BUSINESS_TYPE_DELETE), container.UserController.Remove)
+		userGroup.PUT("/changeStatus", container.HasPerm("system:user:edit"), container.OperLogMiddleware("Modify User Status", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.UserController.ChangeStatus)
+		userGroup.PUT("/resetPwd", container.HasPerm("system:user:edit"), container.OperLogMiddleware("Modify User Password", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.UserController.ResetPwd)
+		userGroup.PUT("/authRole", container.HasPerm("system:user:edit"), container.OperLogMiddleware("User Authorized Role", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.UserController.AddAuthRole)
+		userGroup.POST("/export", container.HasPerm("system:user:export"), container.OperLogMiddleware("Export User", constant.REQUEST_BUSINESS_TYPE_EXPORT), container.UserController.Export)
+		userGroup.POST("/importData", container.HasPerm("system:user:import"), container.OperLogMiddleware("Import User", constant.REQUEST_BUSINESS_TYPE_IMPORT), container.UserController.ImportData)
+		userGroup.POST("/importTemplate", container.OperLogMiddleware("Import User Template", constant.REQUEST_BUSINESS_TYPE_IMPORT), container.UserController.ImportTemplate)
 	}
 
 	// Role Routes
 	roleGroup := api.Group("/system/role")
 	{
-		roleGroup.GET("/list", middleware.HasPerm("system:role:list"), roleController.List)
-		roleGroup.GET("/:roleId", middleware.HasPerm("system:role:query"), roleController.Detail)
-		roleGroup.GET("/deptTree/:roleId", middleware.HasPerm("system:role:query"), roleController.DeptTree)
-		roleGroup.GET("/authUser/allocatedList", middleware.HasPerm("system:role:list"), roleController.RoleAuthUserAllocatedList)
-		roleGroup.GET("/authUser/unallocatedList", middleware.HasPerm("system:role:list"), roleController.RoleAuthUserUnallocatedList)
-		roleGroup.POST("", middleware.HasPerm("system:role:add"), middleware.OperLogMiddleware("Add Role", constant.REQUEST_BUSINESS_TYPE_INSERT), roleController.Create)
-		roleGroup.PUT("", middleware.HasPerm("system:role:edit"), middleware.OperLogMiddleware("Update Role", constant.REQUEST_BUSINESS_TYPE_UPDATE), roleController.Update)
-		roleGroup.DELETE("/:roleIds", middleware.HasPerm("system:role:remove"), middleware.OperLogMiddleware("Delete Role", constant.REQUEST_BUSINESS_TYPE_DELETE), roleController.Remove)
-		roleGroup.PUT("/changeStatus", middleware.HasPerm("system:role:edit"), middleware.OperLogMiddleware("Modify Role Status", constant.REQUEST_BUSINESS_TYPE_UPDATE), roleController.ChangeStatus)
-		roleGroup.PUT("/dataScope", middleware.HasPerm("system:role:edit"), middleware.OperLogMiddleware("Assign Data Permissions", constant.REQUEST_BUSINESS_TYPE_UPDATE), roleController.DataScope)
-		roleGroup.PUT("/authUser/selectAll", middleware.HasPerm("system:role:edit"), middleware.OperLogMiddleware("Batch Select User Authorization", constant.REQUEST_BUSINESS_TYPE_UPDATE), roleController.RoleAuthUserSelectAll)
-		roleGroup.PUT("/authUser/cancel", middleware.HasPerm("system:role:edit"), middleware.OperLogMiddleware("Cancel Authorized User", constant.REQUEST_BUSINESS_TYPE_UPDATE), roleController.RoleAuthUserCancel)
-		roleGroup.PUT("/authUser/cancelAll", middleware.HasPerm("system:role:edit"), middleware.OperLogMiddleware("Batch Cancel Authorized User", constant.REQUEST_BUSINESS_TYPE_UPDATE), roleController.RoleAuthUserCancelAll)
-		roleGroup.POST("/export", middleware.HasPerm("system:role:export"), middleware.OperLogMiddleware("Export Role", constant.REQUEST_BUSINESS_TYPE_EXPORT), roleController.Export)
+		roleGroup.GET("/list", container.HasPerm("system:role:list"), container.RoleController.List)
+		roleGroup.GET("/:roleId", container.HasPerm("system:role:query"), container.RoleController.Detail)
+		roleGroup.GET("/deptTree/:roleId", container.HasPerm("system:role:query"), container.RoleController.DeptTree)
+		roleGroup.GET("/authUser/allocatedList", container.HasPerm("system:role:list"), container.RoleController.RoleAuthUserAllocatedList)
+		roleGroup.GET("/authUser/unallocatedList", container.HasPerm("system:role:list"), container.RoleController.RoleAuthUserUnallocatedList)
+		roleGroup.POST("", container.HasPerm("system:role:add"), container.OperLogMiddleware("Add Role", constant.REQUEST_BUSINESS_TYPE_INSERT), container.RoleController.Create)
+		roleGroup.PUT("", container.HasPerm("system:role:edit"), container.OperLogMiddleware("Update Role", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.RoleController.Update)
+		roleGroup.DELETE("/:roleIds", container.HasPerm("system:role:remove"), container.OperLogMiddleware("Delete Role", constant.REQUEST_BUSINESS_TYPE_DELETE), container.RoleController.Remove)
+		roleGroup.PUT("/changeStatus", container.HasPerm("system:role:edit"), container.OperLogMiddleware("Modify Role Status", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.RoleController.ChangeStatus)
+		roleGroup.PUT("/dataScope", container.HasPerm("system:role:edit"), container.OperLogMiddleware("Assign Data Permissions", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.RoleController.DataScope)
+		roleGroup.PUT("/authUser/selectAll", container.HasPerm("system:role:edit"), container.OperLogMiddleware("Batch Select User Authorization", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.RoleController.RoleAuthUserSelectAll)
+		roleGroup.PUT("/authUser/cancel", container.HasPerm("system:role:edit"), container.OperLogMiddleware("Cancel Authorized User", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.RoleController.RoleAuthUserCancel)
+		roleGroup.PUT("/authUser/cancelAll", container.HasPerm("system:role:edit"), container.OperLogMiddleware("Batch Cancel Authorized User", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.RoleController.RoleAuthUserCancelAll)
+		roleGroup.POST("/export", container.HasPerm("system:role:export"), container.OperLogMiddleware("Export Role", constant.REQUEST_BUSINESS_TYPE_EXPORT), container.RoleController.Export)
 	}
 
 	// Menu Routes
 	menuGroup := api.Group("/system/menu")
 	{
-		menuGroup.GET("/list", middleware.HasPerm("system:menu:list"), menuController.List)
-		menuGroup.GET("/treeselect", menuController.Treeselect)
-		menuGroup.GET("/roleMenuTreeselect/:roleId", menuController.RoleMenuTreeselect)
-		menuGroup.GET("/:menuId", middleware.HasPerm("system:menu:query"), menuController.Detail)
-		menuGroup.POST("", middleware.HasPerm("system:menu:add"), middleware.OperLogMiddleware("Add Menu", constant.REQUEST_BUSINESS_TYPE_INSERT), menuController.Create)
-		menuGroup.PUT("", middleware.HasPerm("system:menu:edit"), middleware.OperLogMiddleware("Update Menu", constant.REQUEST_BUSINESS_TYPE_UPDATE), menuController.Update)
-		menuGroup.DELETE("/:menuId", middleware.HasPerm("system:menu:remove"), middleware.OperLogMiddleware("Delete Menu", constant.REQUEST_BUSINESS_TYPE_DELETE), menuController.Remove)
+		menuGroup.GET("/list", container.HasPerm("system:menu:list"), container.MenuController.List)
+		menuGroup.GET("/treeselect", container.MenuController.Treeselect)
+		menuGroup.GET("/roleMenuTreeselect/:roleId", container.MenuController.RoleMenuTreeselect)
+		menuGroup.GET("/:menuId", container.HasPerm("system:menu:query"), container.MenuController.Detail)
+		menuGroup.POST("", container.HasPerm("system:menu:add"), container.OperLogMiddleware("Add Menu", constant.REQUEST_BUSINESS_TYPE_INSERT), container.MenuController.Create)
+		menuGroup.PUT("", container.HasPerm("system:menu:edit"), container.OperLogMiddleware("Update Menu", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.MenuController.Update)
+		menuGroup.DELETE("/:menuId", container.HasPerm("system:menu:remove"), container.OperLogMiddleware("Delete Menu", constant.REQUEST_BUSINESS_TYPE_DELETE), container.MenuController.Remove)
 	}
 
 	// Dept Routes
 	deptGroup := api.Group("/system/dept")
 	{
-		deptGroup.GET("/list", middleware.HasPerm("system:dept:list"), deptController.List)
-		deptGroup.GET("/list/exclude/:deptId", middleware.HasPerm("system:dept:list"), deptController.ListExclude)
-		deptGroup.GET("/:deptId", middleware.HasPerm("system:dept:query"), deptController.Detail)
-		deptGroup.POST("", middleware.HasPerm("system:dept:add"), middleware.OperLogMiddleware("Add Department", constant.REQUEST_BUSINESS_TYPE_INSERT), deptController.Create)
-		deptGroup.PUT("", middleware.HasPerm("system:dept:edit"), middleware.OperLogMiddleware("Update Department", constant.REQUEST_BUSINESS_TYPE_UPDATE), deptController.Update)
-		deptGroup.DELETE("/:deptId", middleware.HasPerm("system:dept:remove"), middleware.OperLogMiddleware("Delete Department", constant.REQUEST_BUSINESS_TYPE_DELETE), deptController.Remove)
+		deptGroup.GET("/list", container.HasPerm("system:dept:list"), container.DeptController.List)
+		deptGroup.GET("/list/exclude/:deptId", container.HasPerm("system:dept:list"), container.DeptController.ListExclude)
+		deptGroup.GET("/:deptId", container.HasPerm("system:dept:query"), container.DeptController.Detail)
+		deptGroup.POST("", container.HasPerm("system:dept:add"), container.OperLogMiddleware("Add Department", constant.REQUEST_BUSINESS_TYPE_INSERT), container.DeptController.Create)
+		deptGroup.PUT("", container.HasPerm("system:dept:edit"), container.OperLogMiddleware("Update Department", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.DeptController.Update)
+		deptGroup.DELETE("/:deptId", container.HasPerm("system:dept:remove"), container.OperLogMiddleware("Delete Department", constant.REQUEST_BUSINESS_TYPE_DELETE), container.DeptController.Remove)
 	}
 
 	// Post Routes
 	postGroup := api.Group("/system/post")
 	{
-		postGroup.GET("/list", middleware.HasPerm("system:post:list"), postController.List)
-		postGroup.GET("/:postId", middleware.HasPerm("system:post:query"), postController.Detail)
-		postGroup.POST("", middleware.HasPerm("system:post:add"), middleware.OperLogMiddleware("Add Post", constant.REQUEST_BUSINESS_TYPE_INSERT), postController.Create)
-		postGroup.PUT("", middleware.HasPerm("system:post:edit"), middleware.OperLogMiddleware("Update Post", constant.REQUEST_BUSINESS_TYPE_UPDATE), postController.Update)
-		postGroup.DELETE("/:postIds", middleware.HasPerm("system:post:remove"), middleware.OperLogMiddleware("Delete Post", constant.REQUEST_BUSINESS_TYPE_DELETE), postController.Remove)
-		postGroup.POST("/export", middleware.HasPerm("system:post:export"), middleware.OperLogMiddleware("Export Post", constant.REQUEST_BUSINESS_TYPE_EXPORT), postController.Export)
+		postGroup.GET("/list", container.HasPerm("system:post:list"), container.PostController.List)
+		postGroup.GET("/:postId", container.HasPerm("system:post:query"), container.PostController.Detail)
+		postGroup.POST("", container.HasPerm("system:post:add"), container.OperLogMiddleware("Add Post", constant.REQUEST_BUSINESS_TYPE_INSERT), container.PostController.Create)
+		postGroup.PUT("", container.HasPerm("system:post:edit"), container.OperLogMiddleware("Update Post", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.PostController.Update)
+		postGroup.DELETE("/:postIds", container.HasPerm("system:post:remove"), container.OperLogMiddleware("Delete Post", constant.REQUEST_BUSINESS_TYPE_DELETE), container.PostController.Remove)
+		postGroup.POST("/export", container.HasPerm("system:post:export"), container.OperLogMiddleware("Export Post", constant.REQUEST_BUSINESS_TYPE_EXPORT), container.PostController.Export)
 	}
 
 	// Dict Routes
 	dictGroup := api.Group("/system/dict")
 	{
-		dictGroup.GET("/type/list", middleware.HasPerm("system:dict:list"), dictTypeController.List)
-		dictGroup.GET("/type/:dictId", middleware.HasPerm("system:dict:query"), dictTypeController.Detail)
-		dictGroup.GET("/type/optionselect", dictTypeController.Optionselect)
-		dictGroup.POST("/type", middleware.HasPerm("system:dict:add"), middleware.OperLogMiddleware("Add Dictionary Type", constant.REQUEST_BUSINESS_TYPE_INSERT), dictTypeController.Create)
-		dictGroup.PUT("/type", middleware.HasPerm("system:dict:edit"), middleware.OperLogMiddleware("Update Dictionary Type", constant.REQUEST_BUSINESS_TYPE_UPDATE), dictTypeController.Update)
-		dictGroup.DELETE("/type/:dictIds", middleware.HasPerm("system:dict:remove"), middleware.OperLogMiddleware("Delete Dictionary Type", constant.REQUEST_BUSINESS_TYPE_DELETE), dictTypeController.Remove)
-		dictGroup.POST("/type/export", middleware.HasPerm("system:dict:export"), middleware.OperLogMiddleware("Export Dictionary Type", constant.REQUEST_BUSINESS_TYPE_EXPORT), dictTypeController.Export)
-		dictGroup.DELETE("/type/refreshCache", middleware.HasPerm("system:dict:remove"), middleware.OperLogMiddleware("Refresh Dictionary Type Cache", constant.REQUEST_BUSINESS_TYPE_DELETE), dictTypeController.RefreshCache)
+		dictGroup.GET("/type/list", container.HasPerm("system:dict:list"), container.DictTypeController.List)
+		dictGroup.GET("/type/:dictId", container.HasPerm("system:dict:query"), container.DictTypeController.Detail)
+		dictGroup.GET("/type/optionselect", container.DictTypeController.Optionselect)
+		dictGroup.POST("/type", container.HasPerm("system:dict:add"), container.OperLogMiddleware("Add Dictionary Type", constant.REQUEST_BUSINESS_TYPE_INSERT), container.DictTypeController.Create)
+		dictGroup.PUT("/type", container.HasPerm("system:dict:edit"), container.OperLogMiddleware("Update Dictionary Type", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.DictTypeController.Update)
+		dictGroup.DELETE("/type/:dictIds", container.HasPerm("system:dict:remove"), container.OperLogMiddleware("Delete Dictionary Type", constant.REQUEST_BUSINESS_TYPE_DELETE), container.DictTypeController.Remove)
+		dictGroup.POST("/type/export", container.HasPerm("system:dict:export"), container.OperLogMiddleware("Export Dictionary Type", constant.REQUEST_BUSINESS_TYPE_EXPORT), container.DictTypeController.Export)
+		dictGroup.DELETE("/type/refreshCache", container.HasPerm("system:dict:remove"), container.OperLogMiddleware("Refresh Dictionary Type Cache", constant.REQUEST_BUSINESS_TYPE_DELETE), container.DictTypeController.RefreshCache)
 
-		dictGroup.GET("/data/list", middleware.HasPerm("system:dict:list"), dictDataController.List)
-		dictGroup.GET("/data/:dictCode", middleware.HasPerm("system:dict:query"), dictDataController.Detail)
-		dictGroup.GET("/data/type/:dictType", dictDataController.Type)
-		dictGroup.POST("/data", middleware.HasPerm("system:dict:add"), middleware.OperLogMiddleware("Add Dictionary Data", constant.REQUEST_BUSINESS_TYPE_INSERT), dictDataController.Create)
-		dictGroup.PUT("/data", middleware.HasPerm("system:dict:edit"), middleware.OperLogMiddleware("Update Dictionary Data", constant.REQUEST_BUSINESS_TYPE_UPDATE), dictDataController.Update)
-		dictGroup.DELETE("/data/:dictCodes", middleware.HasPerm("system:dict:remove"), middleware.OperLogMiddleware("Delete Dictionary Data", constant.REQUEST_BUSINESS_TYPE_DELETE), dictDataController.Remove)
-		dictGroup.POST("/data/export", middleware.HasPerm("system:dict:export"), middleware.OperLogMiddleware("Export Dictionary Data", constant.REQUEST_BUSINESS_TYPE_EXPORT), dictDataController.Export)
+		dictGroup.GET("/data/list", container.HasPerm("system:dict:list"), container.DictDataController.List)
+		dictGroup.GET("/data/:dictCode", container.HasPerm("system:dict:query"), container.DictDataController.Detail)
+		dictGroup.GET("/data/type/:dictType", container.DictDataController.Type)
+		dictGroup.POST("/data", container.HasPerm("system:dict:add"), container.OperLogMiddleware("Add Dictionary Data", constant.REQUEST_BUSINESS_TYPE_INSERT), container.DictDataController.Create)
+		dictGroup.PUT("/data", container.HasPerm("system:dict:edit"), container.OperLogMiddleware("Update Dictionary Data", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.DictDataController.Update)
+		dictGroup.DELETE("/data/:dictCodes", container.HasPerm("system:dict:remove"), container.OperLogMiddleware("Delete Dictionary Data", constant.REQUEST_BUSINESS_TYPE_DELETE), container.DictDataController.Remove)
+		dictGroup.POST("/data/export", container.HasPerm("system:dict:export"), container.OperLogMiddleware("Export Dictionary Data", constant.REQUEST_BUSINESS_TYPE_EXPORT), container.DictDataController.Export)
 	}
 
 	// Config Routes
 	configGroup := api.Group("/system/config")
 	{
-		configGroup.GET("/list", middleware.HasPerm("system:config:list"), configController.List)
-		configGroup.GET("/:configId", middleware.HasPerm("system:config:query"), configController.Detail)
-		configGroup.GET("/configKey/:configKey", configController.ConfigKey)
-		configGroup.POST("", middleware.HasPerm("system:config:add"), middleware.OperLogMiddleware("Add Parameter Configuration", constant.REQUEST_BUSINESS_TYPE_INSERT), configController.Create)
-		configGroup.PUT("", middleware.HasPerm("system:config:edit"), middleware.OperLogMiddleware("Update Parameter Configuration", constant.REQUEST_BUSINESS_TYPE_UPDATE), configController.Update)
-		configGroup.DELETE("/:configIds", middleware.HasPerm("system:config:remove"), middleware.OperLogMiddleware("Delete Parameter Configuration", constant.REQUEST_BUSINESS_TYPE_DELETE), configController.Remove)
-		configGroup.POST("/export", middleware.HasPerm("system:config:export"), middleware.OperLogMiddleware("Export Parameter Configuration", constant.REQUEST_BUSINESS_TYPE_EXPORT), configController.Export)
-		configGroup.DELETE("/refreshCache", middleware.HasPerm("system:config:remove"), middleware.OperLogMiddleware("Refresh Parameter Configuration Cache", constant.REQUEST_BUSINESS_TYPE_DELETE), configController.RefreshCache)
+		configGroup.GET("/list", container.HasPerm("system:config:list"), container.ConfigController.List)
+		configGroup.GET("/:configId", container.HasPerm("system:config:query"), container.ConfigController.Detail)
+		configGroup.GET("/configKey/:configKey", container.ConfigController.ConfigKey)
+		configGroup.POST("", container.HasPerm("system:config:add"), container.OperLogMiddleware("Add Parameter Configuration", constant.REQUEST_BUSINESS_TYPE_INSERT), container.ConfigController.Create)
+		configGroup.PUT("", container.HasPerm("system:config:edit"), container.OperLogMiddleware("Update Parameter Configuration", constant.REQUEST_BUSINESS_TYPE_UPDATE), container.ConfigController.Update)
+		configGroup.DELETE("/:configIds", container.HasPerm("system:config:remove"), container.OperLogMiddleware("Delete Parameter Configuration", constant.REQUEST_BUSINESS_TYPE_DELETE), container.ConfigController.Remove)
+		configGroup.POST("/export", container.HasPerm("system:config:export"), container.OperLogMiddleware("Export Parameter Configuration", constant.REQUEST_BUSINESS_TYPE_EXPORT), container.ConfigController.Export)
+		configGroup.DELETE("/refreshCache", container.HasPerm("system:config:remove"), container.OperLogMiddleware("Refresh Parameter Configuration Cache", constant.REQUEST_BUSINESS_TYPE_DELETE), container.ConfigController.RefreshCache)
 	}
 }
 
-func registerMonitorRoutes(api *gin.RouterGroup) {
-	logininforService := &service.LogininforService{}
-	logininforController := monitorcontroller.NewLogininforController(logininforService)
-
-	operLogService := &service.OperLogService{}
-	operlogController := monitorcontroller.NewOperlogController(operLogService)
-
+func registerMonitorRoutes(api *gin.RouterGroup, container *app.AppContainer) {
 	monitorGroup := api.Group("/monitor")
 	{
 		logininforGroup := monitorGroup.Group("/logininfor")
 		{
-			logininforGroup.GET("/list", middleware.HasPerm("monitor:logininfor:list"), logininforController.List)
-			logininforGroup.DELETE("/:infoIds", middleware.HasPerm("monitor:logininfor:remove"), middleware.OperLogMiddleware("Delete Login Log", constant.REQUEST_BUSINESS_TYPE_DELETE), logininforController.Remove)
-			logininforGroup.DELETE("/clean", middleware.HasPerm("monitor:logininfor:remove"), middleware.OperLogMiddleware("Clear Login Log", constant.REQUEST_BUSINESS_TYPE_DELETE), logininforController.Clean)
-			logininforGroup.GET("/unlock/:userName", middleware.HasPerm("monitor:logininfor:unlock"), middleware.OperLogMiddleware("Account Unlock", constant.REQUEST_BUSINESS_TYPE_DELETE), logininforController.Unlock)
-			logininforGroup.POST("/export", middleware.HasPerm("monitor:logininfor:export"), middleware.OperLogMiddleware("Export Login Log", constant.REQUEST_BUSINESS_TYPE_EXPORT), logininforController.Export)
+			logininforGroup.GET("/list", container.HasPerm("monitor:logininfor:list"), container.LogininforController.List)
+			logininforGroup.DELETE("/:infoIds", container.HasPerm("monitor:logininfor:remove"), container.OperLogMiddleware("Delete Login Log", constant.REQUEST_BUSINESS_TYPE_DELETE), container.LogininforController.Remove)
+			logininforGroup.DELETE("/clean", container.HasPerm("monitor:logininfor:remove"), container.OperLogMiddleware("Clear Login Log", constant.REQUEST_BUSINESS_TYPE_DELETE), container.LogininforController.Clean)
+			logininforGroup.GET("/unlock/:userName", container.HasPerm("monitor:logininfor:unlock"), container.OperLogMiddleware("Account Unlock", constant.REQUEST_BUSINESS_TYPE_DELETE), container.LogininforController.Unlock)
+			logininforGroup.POST("/export", container.HasPerm("monitor:logininfor:export"), container.OperLogMiddleware("Export Login Log", constant.REQUEST_BUSINESS_TYPE_EXPORT), container.LogininforController.Export)
 		}
 		operlogGroup := monitorGroup.Group("/operlog")
 		{
-			operlogGroup.GET("/list", middleware.HasPerm("monitor:operlog:list"), operlogController.List)
-			operlogGroup.DELETE("/:operIds", middleware.HasPerm("monitor:operlog:remove"), middleware.OperLogMiddleware("Delete Operation Log", constant.REQUEST_BUSINESS_TYPE_DELETE), operlogController.Remove)
-			operlogGroup.DELETE("/clean", middleware.HasPerm("monitor:operlog:remove"), middleware.OperLogMiddleware("Clear Operation Log", constant.REQUEST_BUSINESS_TYPE_DELETE), operlogController.Clean)
-			operlogGroup.POST("/export", middleware.HasPerm("monitor:operlog:export"), middleware.OperLogMiddleware("Export Operation Log", constant.REQUEST_BUSINESS_TYPE_EXPORT), operlogController.Export)
+			operlogGroup.GET("/list", container.HasPerm("monitor:operlog:list"), container.OperlogController.List)
+			operlogGroup.DELETE("/:operIds", container.HasPerm("monitor:operlog:remove"), container.OperLogMiddleware("Delete Operation Log", constant.REQUEST_BUSINESS_TYPE_DELETE), container.OperlogController.Remove)
+			operlogGroup.DELETE("/clean", container.HasPerm("monitor:operlog:remove"), container.OperLogMiddleware("Clear Operation Log", constant.REQUEST_BUSINESS_TYPE_DELETE), container.OperlogController.Clean)
+			operlogGroup.POST("/export", container.HasPerm("monitor:operlog:export"), container.OperLogMiddleware("Export Operation Log", constant.REQUEST_BUSINESS_TYPE_EXPORT), container.OperlogController.Export)
 		}
 	}
 }

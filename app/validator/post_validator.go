@@ -1,18 +1,18 @@
 package validator
 
 import (
-	"errors"
 	"mira/app/dto"
+	"mira/common/xerrors"
 )
 
 // CreatePostValidator validates the request to create a post.
 func CreatePostValidator(param dto.CreatePostRequest) error {
 	if param.PostCode == "" {
-		return errors.New("please enter the post code")
+		return xerrors.ErrPostCodeEmpty
 	}
 
 	if param.PostName == "" {
-		return errors.New("please enter the post name")
+		return xerrors.ErrPostNameEmpty
 	}
 
 	return nil
@@ -21,15 +21,15 @@ func CreatePostValidator(param dto.CreatePostRequest) error {
 // UpdatePostValidator validates the request to update a post.
 func UpdatePostValidator(param dto.UpdatePostRequest) error {
 	if param.PostId <= 0 {
-		return errors.New("parameter error")
+		return xerrors.ErrParam
 	}
 
 	if param.PostCode == "" {
-		return errors.New("please enter the post code")
+		return xerrors.ErrPostCodeEmpty
 	}
 
 	if param.PostName == "" {
-		return errors.New("please enter the post name")
+		return xerrors.ErrPostNameEmpty
 	}
 
 	return nil
