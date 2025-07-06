@@ -1,25 +1,37 @@
 package monitorcontroller
 
 import (
-	"mira/anima/dal"
+	"time"
+
 	"mira/anima/response"
 	"mira/app/dto"
 	"mira/app/service"
 	"mira/common/utils"
-	"regexp"
-	"strings"
-	"time"
-
-	rediskey "mira/common/types/redis-key"
 
 	"gitee.com/hanshuangjianke/go-excel/excel"
 	"github.com/gin-gonic/gin"
 )
 
-type LogininforController struct{}
+// LogininforController handles login log related operations.
+type LogininforController struct {
+	LogininforService *service.LogininforService
+}
 
-// Login log list
-func (*LogininforController) List(ctx *gin.Context) {
+// NewLogininforController creates a new LogininforController.
+func NewLogininforController(logininforService *service.LogininforService) *LogininforController {
+	return &LogininforController{LogininforService: logininforService}
+}
+
+// List retrieves a paginated list of login logs.
+// @Summary Get login log list
+// @Description Retrieves a paginated list of login logs based on query parameters.
+// @Tags Monitor
+// @Accept json
+// @Produce json
+// @Param query body dto.LogininforListRequest true "Query parameters"
+// @Success 200 {object} response.Response{data=response.PageData{list=[]dto.LogininforListResponse}} "Success"
+// @Router /monitor/logininfor/list [get]
+func (c *LogininforController) List(ctx *gin.Context) {
 	var param dto.LogininforListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -27,32 +39,30 @@ func (*LogininforController) List(ctx *gin.Context) {
 		return
 	}
 
-	// The default sorting rule is descending (DESC)
-	param.OrderRule = "DESC"
-	if strings.HasPrefix(param.IsAsc, "asc") {
-		param.OrderRule = "ASC"
-	}
+	param.OrderRule, param.OrderByColumn = utils.ParseSort(param.IsAsc, param.OrderByColumn, "loginTime")
 
-	// Sort field camel case to snake case
-	if param.OrderByColumn == "" {
-		param.OrderByColumn = "loginTime"
-	}
-	param.OrderByColumn = strings.ToLower(regexp.MustCompile("([A-Z])").ReplaceAllString(param.OrderByColumn, "_${1}"))
-
-	logininfors, total := (&service.LogininforService{}).GetLogininforList(param, true)
+	logininfors, total := c.LogininforService.GetLogininforList(param, true)
 
 	response.NewSuccess().SetPageData(logininfors, total).Json(ctx)
 }
 
-// Delete login log
-func (*LogininforController) Remove(ctx *gin.Context) {
+// Remove deletes one or more login logs.
+// @Summary Delete login log
+// @Description Deletes login logs by their IDs.
+// @Tags Monitor
+// @Accept json
+// @Produce json
+// @Param infoIds path string true "Login log IDs, comma-separated"
+// @Success 200 {object} response.Response "Success"
+// @Router /monitor/logininfor/{infoIds} [delete]
+func (c *LogininforController) Remove(ctx *gin.Context) {
 	infoIds, err := utils.StringToIntSlice(ctx.Param("infoIds"), ",")
 	if err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
 
-	if err = (&service.LogininforService{}).DeleteLogininfor(infoIds); err != nil {
+	if err = c.LogininforService.DeleteLogininfor(infoIds); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
@@ -60,9 +70,16 @@ func (*LogininforController) Remove(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Clean login log
-func (*LogininforController) Clean(ctx *gin.Context) {
-	if err := (&service.LogininforService{}).DeleteLogininfor(nil); err != nil {
+// Clean clears all login logs.
+// @Summary Clean login log
+// @Description Clears all login logs from the system.
+// @Tags Monitor
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Response "Success"
+// @Router /monitor/logininfor/clean [delete]
+func (c *LogininforController) Clean(ctx *gin.Context) {
+	if err := c.LogininforService.DeleteLogininfor(nil); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
@@ -70,9 +87,17 @@ func (*LogininforController) Clean(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Account unlock (delete the 10-minute cache for login error count limit)
-func (*LogininforController) Unlock(ctx *gin.Context) {
-	if _, err := dal.Redis.Del(ctx.Request.Context(), rediskey.LoginPasswordErrorKey+ctx.Param("userName")).Result(); err != nil {
+// Unlock unlocks a user account.
+// @Summary Unlock user account
+// @Description Unlocks a user account by deleting the login failure cache.
+// @Tags Monitor
+// @Accept json
+// @Produce json
+// @Param userName path string true "Username to unlock"
+// @Success 200 {object} response.Response "Success"
+// @Router /monitor/logininfor/unlock/{userName} [get]
+func (c *LogininforController) Unlock(ctx *gin.Context) {
+	if err := c.LogininforService.Unlock(ctx.Param("userName")); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
@@ -80,8 +105,16 @@ func (*LogininforController) Unlock(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Data export
-func (*LogininforController) Export(ctx *gin.Context) {
+// Export exports login logs to an Excel file.
+// @Summary Export login log
+// @Description Exports login logs to an Excel file based on query parameters.
+// @Tags Monitor
+// @Accept json
+// @Produce json
+// @Param query body dto.LogininforListRequest true "Query parameters"
+// @Success 200 {file} file "Excel file"
+// @Router /monitor/logininfor/export [post]
+func (c *LogininforController) Export(ctx *gin.Context) {
 	var param dto.LogininforListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -89,21 +122,11 @@ func (*LogininforController) Export(ctx *gin.Context) {
 		return
 	}
 
-	// The default sorting rule is descending (DESC)
-	param.OrderRule = "DESC"
-	if strings.HasPrefix(param.IsAsc, "asc") {
-		param.OrderRule = "ASC"
-	}
-
-	// Sort field camel case to snake case
-	if param.OrderByColumn == "" {
-		param.OrderByColumn = "loginTime"
-	}
-	param.OrderByColumn = strings.ToLower(regexp.MustCompile("([A-Z])").ReplaceAllString(param.OrderByColumn, "_${1}"))
+	param.OrderRule, param.OrderByColumn = utils.ParseSort(param.IsAsc, param.OrderByColumn, "loginTime")
 
 	list := make([]dto.LogininforExportResponse, 0)
 
-	logininfors, _ := (&service.LogininforService{}).GetLogininforList(param, false)
+	logininfors, _ := c.LogininforService.GetLogininforList(param, false)
 	for _, logininfor := range logininfors {
 		list = append(list, dto.LogininforExportResponse{
 			InfoId:        logininfor.InfoId,

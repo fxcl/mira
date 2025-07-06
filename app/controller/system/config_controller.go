@@ -1,26 +1,40 @@
 package systemcontroller
 
 import (
-	"mira/anima/dal"
+	"strconv"
+	"time"
+
 	"mira/anima/response"
 	"mira/app/dto"
 	"mira/app/security"
 	"mira/app/service"
 	"mira/app/validator"
 	"mira/common/utils"
-	"strconv"
-	"time"
-
-	rediskey "mira/common/types/redis-key"
 
 	"gitee.com/hanshuangjianke/go-excel/excel"
 	"github.com/gin-gonic/gin"
 )
 
-type ConfigController struct{}
+// ConfigController handles parameter configuration operations.
+type ConfigController struct {
+	ConfigService *service.ConfigService
+}
 
-// Parameter list
-func (*ConfigController) List(ctx *gin.Context) {
+// NewConfigController creates a new ConfigController.
+func NewConfigController(configService *service.ConfigService) *ConfigController {
+	return &ConfigController{ConfigService: configService}
+}
+
+// List retrieves a paginated list of parameters.
+// @Summary Get parameter list
+// @Description Retrieves a paginated list of parameters based on query parameters.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param query body dto.ConfigListRequest true "Query parameters"
+// @Success 200 {object} response.Response{data=response.PageData{list=[]dto.ConfigListResponse}} "Success"
+// @Router /system/config/list [get]
+func (c *ConfigController) List(ctx *gin.Context) {
 	var param dto.ConfigListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -28,22 +42,38 @@ func (*ConfigController) List(ctx *gin.Context) {
 		return
 	}
 
-	configs, total := (&service.ConfigService{}).GetConfigList(param, true)
+	configs, total := c.ConfigService.GetConfigList(param, true)
 
 	response.NewSuccess().SetPageData(configs, total).Json(ctx)
 }
 
-// Parameter details
-func (*ConfigController) Detail(ctx *gin.Context) {
+// Detail retrieves the details of a specific parameter.
+// @Summary Get parameter details
+// @Description Retrieves the details of a parameter by its ID.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param configId path int true "Config ID"
+// @Success 200 {object} response.Response{data=dto.ConfigDetailResponse} "Success"
+// @Router /system/config/{configId} [get]
+func (c *ConfigController) Detail(ctx *gin.Context) {
 	configId, _ := strconv.Atoi(ctx.Param("configId"))
 
-	config := (&service.ConfigService{}).GetConfigByConfigId(configId)
+	config := c.ConfigService.GetConfigByConfigId(configId)
 
 	response.NewSuccess().SetData("data", config).Json(ctx)
 }
 
-// Add parameter
-func (*ConfigController) Create(ctx *gin.Context) {
+// Create adds a new parameter.
+// @Summary Add parameter
+// @Description Adds a new parameter to the system.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.CreateConfigRequest true "Parameter data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/config [post]
+func (c *ConfigController) Create(ctx *gin.Context) {
 	var param dto.CreateConfigRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -56,12 +86,12 @@ func (*ConfigController) Create(ctx *gin.Context) {
 		return
 	}
 
-	if config := (&service.ConfigService{}).GetConfigByConfigKey(param.ConfigKey); config.ConfigId > 0 {
+	if config := c.ConfigService.GetConfigByConfigKey(param.ConfigKey); config.ConfigId > 0 {
 		response.NewError().SetMsg("Failed to add parameter " + param.ConfigName + ", parameter key name already exists").Json(ctx)
 		return
 	}
 
-	if err := (&service.ConfigService{}).CreateConfig(dto.SaveConfig{
+	if err := c.ConfigService.CreateConfig(dto.SaveConfig{
 		ConfigName:  param.ConfigName,
 		ConfigKey:   param.ConfigKey,
 		ConfigValue: param.ConfigValue,
@@ -76,8 +106,16 @@ func (*ConfigController) Create(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Update parameter
-func (*ConfigController) Update(ctx *gin.Context) {
+// Update modifies an existing parameter.
+// @Summary Update parameter
+// @Description Modifies an existing parameter in the system.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.UpdateConfigRequest true "Parameter data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/config [put]
+func (c *ConfigController) Update(ctx *gin.Context) {
 	var param dto.UpdateConfigRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -90,12 +128,12 @@ func (*ConfigController) Update(ctx *gin.Context) {
 		return
 	}
 
-	if config := (&service.ConfigService{}).GetConfigByConfigKey(param.ConfigKey); config.ConfigId > 0 && config.ConfigId != param.ConfigId {
+	if config := c.ConfigService.GetConfigByConfigKey(param.ConfigKey); config.ConfigId > 0 && config.ConfigId != param.ConfigId {
 		response.NewError().SetMsg("Failed to modify parameter " + param.ConfigName + ", parameter key name already exists").Json(ctx)
 		return
 	}
 
-	if err := (&service.ConfigService{}).UpdateConfig(dto.SaveConfig{
+	if err := c.ConfigService.UpdateConfig(dto.SaveConfig{
 		ConfigId:    param.ConfigId,
 		ConfigName:  param.ConfigName,
 		ConfigKey:   param.ConfigKey,
@@ -111,15 +149,23 @@ func (*ConfigController) Update(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Delete parameter
-func (*ConfigController) Remove(ctx *gin.Context) {
+// Remove deletes one or more parameters.
+// @Summary Delete parameter
+// @Description Deletes parameters by their IDs.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param configIds path string true "Config IDs, comma-separated"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/config/{configIds} [delete]
+func (c *ConfigController) Remove(ctx *gin.Context) {
 	configIds, err := utils.StringToIntSlice(ctx.Param("configIds"), ",")
 	if err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
 
-	if err = (&service.ConfigService{}).DeleteConfig(configIds); err != nil {
+	if err = c.ConfigService.DeleteConfig(configIds); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
@@ -127,17 +173,33 @@ func (*ConfigController) Remove(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Get configuration value by configuration key
-func (*ConfigController) ConfigKey(ctx *gin.Context) {
+// ConfigKey retrieves a configuration value by its key.
+// @Summary Get configuration value by key
+// @Description Retrieves a configuration value by its unique key.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param configKey path string true "Config Key"
+// @Success 200 {object} response.Response{msg=string} "Success"
+// @Router /system/config/configKey/{configKey} [get]
+func (c *ConfigController) ConfigKey(ctx *gin.Context) {
 	configKey := ctx.Param("configKey")
 
-	config := (&service.ConfigService{}).GetConfigCacheByConfigKey(configKey)
+	config := c.ConfigService.GetConfigCacheByConfigKey(configKey)
 
 	response.NewSuccess().SetMsg(config.ConfigValue).Json(ctx)
 }
 
-// Data export
-func (*ConfigController) Export(ctx *gin.Context) {
+// Export exports parameter data to an Excel file.
+// @Summary Export parameters
+// @Description Exports parameter data to an Excel file based on query parameters.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param query body dto.ConfigListRequest true "Query parameters"
+// @Success 200 {file} file "Excel file"
+// @Router /system/config/export [post]
+func (c *ConfigController) Export(ctx *gin.Context) {
 	var param dto.ConfigListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -147,7 +209,7 @@ func (*ConfigController) Export(ctx *gin.Context) {
 
 	list := make([]dto.ConfigExportResponse, 0)
 
-	configs, _ := (&service.ConfigService{}).GetConfigList(param, false)
+	configs, _ := c.ConfigService.GetConfigList(param, false)
 	for _, config := range configs {
 		list = append(list, dto.ConfigExportResponse{
 			ConfigId:    config.ConfigId,
@@ -167,9 +229,16 @@ func (*ConfigController) Export(ctx *gin.Context) {
 	excel.DownLoadExcel("config_"+time.Now().Format("20060102150405"), ctx.Writer, file)
 }
 
-// Refresh cache
-func (*ConfigController) RefreshCache(ctx *gin.Context) {
-	if err := dal.Redis.Del(ctx.Request.Context(), rediskey.SysConfigKey).Err(); err != nil {
+// RefreshCache refreshes the parameter cache.
+// @Summary Refresh parameter cache
+// @Description Clears the parameter configuration cache in Redis.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Response "Success"
+// @Router /system/config/refreshCache [delete]
+func (c *ConfigController) RefreshCache(ctx *gin.Context) {
+	if err := c.ConfigService.RefreshCache(); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}

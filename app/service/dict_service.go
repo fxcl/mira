@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+
 	"mira/anima/dal"
 	"mira/app/dto"
 	"mira/app/model"
@@ -88,6 +89,11 @@ func (s *DictTypeService) GetDcitTypeByDictType(dictType string) dto.DictTypeDet
 	dal.Gorm.Model(model.SysDictType{}).Where("dict_type = ?", dictType).Last(&dictTypeResult)
 
 	return dictTypeResult
+}
+
+// Refresh cache
+func (s *DictTypeService) RefreshCache() error {
+	return dal.Redis.Del(context.Background(), rediskey.SysDictKey).Err()
 }
 
 type DictDataService struct{}

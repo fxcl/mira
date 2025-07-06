@@ -1,9 +1,12 @@
 package service
 
 import (
+	"context"
+
 	"mira/anima/dal"
 	"mira/app/dto"
 	"mira/app/model"
+	rediskey "mira/common/types/redis-key"
 )
 
 type LogininforService struct{}
@@ -48,6 +51,12 @@ func (s *LogininforService) GetLogininforList(param dto.LogininforListRequest, i
 	query.Find(&logininfos)
 
 	return logininfos, int(count)
+}
+
+// Account unlock (delete the 10-minute cache for login error count limit)
+func (s *LogininforService) Unlock(userName string) error {
+	_, err := dal.Redis.Del(context.Background(), rediskey.LoginPasswordErrorKey+userName).Result()
+	return err
 }
 
 // Record login information

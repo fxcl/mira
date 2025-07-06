@@ -2,6 +2,11 @@ package systemcontroller
 
 import (
 	"io"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
 	"mira/anima/response"
 	"mira/app/dto"
 	"mira/app/security"
@@ -11,29 +16,58 @@ import (
 	"mira/common/upload"
 	"mira/common/utils"
 	"mira/config"
-	"os"
-	"strconv"
-	"strings"
-	"time"
 
 	"gitee.com/hanshuangjianke/go-excel/excel"
 	"github.com/gin-gonic/gin"
 	excelize "github.com/xuri/excelize/v2"
 )
 
-type UserController struct{}
+// UserController handles user-related operations.
+type UserController struct {
+	UserService   *service.UserService
+	DeptService   *service.DeptService
+	RoleService   *service.RoleService
+	PostService   *service.PostService
+	ConfigService *service.ConfigService
+}
 
-// Get department tree
-func (*UserController) DeptTree(ctx *gin.Context) {
-	depts := (&service.DeptService{}).GetUserDeptTree(security.GetAuthUserId(ctx))
+// NewUserController creates a new UserController.
+func NewUserController(userService *service.UserService, deptService *service.DeptService, roleService *service.RoleService, postService *service.PostService, configService *service.ConfigService) *UserController {
+	return &UserController{
+		UserService:   userService,
+		DeptService:   deptService,
+		RoleService:   roleService,
+		PostService:   postService,
+		ConfigService: configService,
+	}
+}
 
-	tree := (&service.UserService{}).DeptListToTree(depts, 0)
+// DeptTree retrieves the department tree for the current user.
+// @Summary Get department tree
+// @Description Retrieves the department tree accessible to the current user.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Response{data=[]dto.DeptTreeResponse} "Success"
+// @Router /system/user/deptTree [get]
+func (c *UserController) DeptTree(ctx *gin.Context) {
+	depts := c.DeptService.GetUserDeptTree(security.GetAuthUserId(ctx))
+
+	tree := c.UserService.DeptListToTree(depts, 0)
 
 	response.NewSuccess().SetData("data", tree).Json(ctx)
 }
 
-// Get user list
-func (*UserController) List(ctx *gin.Context) {
+// List retrieves a paginated list of users.
+// @Summary Get user list
+// @Description Retrieves a paginated list of users based on query parameters.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param query body dto.UserListRequest true "Query parameters"
+// @Success 200 {object} response.Response{data=response.PageData{list=[]dto.UserListResponse}} "Success"
+// @Router /system/user/list [get]
+func (c *UserController) List(ctx *gin.Context) {
 	var param dto.UserListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -41,7 +75,7 @@ func (*UserController) List(ctx *gin.Context) {
 		return
 	}
 
-	users, total := (&service.UserService{}).GetUserList(param, security.GetAuthUserId(ctx), true)
+	users, total := c.UserService.GetUserList(param, security.GetAuthUserId(ctx), true)
 
 	for key, user := range users {
 		users[key].Dept.DeptName = user.DeptName
@@ -51,22 +85,27 @@ func (*UserController) List(ctx *gin.Context) {
 	response.NewSuccess().SetPageData(users, total).Json(ctx)
 }
 
-// User details
-func (*UserController) Detail(ctx *gin.Context) {
+// Detail retrieves the details of a specific user.
+// @Summary User details
+// @Description Retrieves comprehensive details for a specific user, including roles, posts, and department info.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param userId path int false "User ID"
+// @Success 200 {object} response.Response{data=map[string]interface{}} "Success"
+// @Router /system/user/{userId} [get]
+func (c *UserController) Detail(ctx *gin.Context) {
 	userId, _ := strconv.Atoi(ctx.Param("userId"))
 
-	response := response.NewSuccess()
+	resp := response.NewSuccess()
 
 	if userId > 0 {
-		user := (&service.UserService{}).GetUserByUserId(userId)
-
+		user := c.UserService.GetUserByUserId(userId)
 		user.Admin = user.UserId == 1
+		dept := c.DeptService.GetDeptByDeptId(user.DeptId)
+		roles := c.RoleService.GetRoleListByUserId(user.UserId)
 
-		dept := (&service.DeptService{}).GetDeptByDeptId(user.DeptId)
-
-		roles := (&service.RoleService{}).GetRoleListByUserId(user.UserId)
-
-		response.SetData("data", dto.AuthUserInfoResponse{
+		resp.SetData("data", dto.AuthUserInfoResponse{
 			UserDetailResponse: user,
 			Dept:               dept,
 			Roles:              roles,
@@ -76,28 +115,36 @@ func (*UserController) Detail(ctx *gin.Context) {
 		for _, role := range roles {
 			roleIds = append(roleIds, role.RoleId)
 		}
-		response.SetData("roleIds", roleIds)
+		resp.SetData("roleIds", roleIds)
 
-		postIds := (&service.PostService{}).GetPostIdsByUserId(user.UserId)
-		response.SetData("postIds", postIds)
+		postIds := c.PostService.GetPostIdsByUserId(user.UserId)
+		resp.SetData("postIds", postIds)
 	}
 
-	roles, _ := (&service.RoleService{}).GetRoleList(dto.RoleListRequest{}, false)
+	roles, _ := c.RoleService.GetRoleList(dto.RoleListRequest{}, false)
 	if userId != 1 {
 		roles = utils.Filter(roles, func(role dto.RoleListResponse) bool {
 			return role.RoleId != 1
 		})
 	}
-	response.SetData("roles", roles)
+	resp.SetData("roles", roles)
 
-	posts, _ := (&service.PostService{}).GetPostList(dto.PostListRequest{}, false)
-	response.SetData("posts", posts)
+	posts, _ := c.PostService.GetPostList(dto.PostListRequest{}, false)
+	resp.SetData("posts", posts)
 
-	response.Json(ctx)
+	resp.Json(ctx)
 }
 
-// Add user
-func (*UserController) Create(ctx *gin.Context) {
+// Create adds a new user.
+// @Summary Add user
+// @Description Adds a new user to the system with specified roles and posts.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.CreateUserRequest true "User data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/user [post]
+func (c *UserController) Create(ctx *gin.Context) {
 	var param dto.CreateUserRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -110,26 +157,26 @@ func (*UserController) Create(ctx *gin.Context) {
 		return
 	}
 
-	if user := (&service.UserService{}).GetUserByUsername(param.UserName); user.UserId > 0 {
+	if user := c.UserService.GetUserByUsername(param.UserName); user.UserId > 0 {
 		response.NewError().SetMsg("Failed to add user " + param.UserName + ", username already exists").Json(ctx)
 		return
 	}
 
 	if param.Email != "" {
-		if user := (&service.UserService{}).GetUserByEmail(param.Email); user.UserId > 0 {
+		if user := c.UserService.GetUserByEmail(param.Email); user.UserId > 0 {
 			response.NewError().SetMsg("Failed to add user " + param.UserName + ", email already exists").Json(ctx)
 			return
 		}
 	}
 
 	if param.Phonenumber != "" {
-		if user := (&service.UserService{}).GetUserByPhonenumber(param.Phonenumber); user.UserId > 0 {
+		if user := c.UserService.GetUserByPhonenumber(param.Phonenumber); user.UserId > 0 {
 			response.NewError().SetMsg("Failed to add user " + param.UserName + ", phone number already exists").Json(ctx)
 			return
 		}
 	}
 
-	if err := (&service.UserService{}).CreateUser(dto.SaveUser{
+	if err := c.UserService.CreateUser(dto.SaveUser{
 		DeptId:      param.DeptId,
 		UserName:    param.UserName,
 		NickName:    param.NickName,
@@ -148,8 +195,16 @@ func (*UserController) Create(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Update user
-func (*UserController) Update(ctx *gin.Context) {
+// Update modifies an existing user.
+// @Summary Update user
+// @Description Modifies an existing user's information, roles, and posts.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.UpdateUserRequest true "User data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/user [put]
+func (c *UserController) Update(ctx *gin.Context) {
 	var param dto.UpdateUserRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -163,20 +218,20 @@ func (*UserController) Update(ctx *gin.Context) {
 	}
 
 	if param.Email != "" {
-		if user := (&service.UserService{}).GetUserByEmail(param.Email); user.UserId > 0 && user.UserId != param.UserId {
+		if user := c.UserService.GetUserByEmail(param.Email); user.UserId > 0 && user.UserId != param.UserId {
 			response.NewError().SetMsg("Failed to modify user " + param.UserName + ", email already exists").Json(ctx)
 			return
 		}
 	}
 
 	if param.Phonenumber != "" {
-		if user := (&service.UserService{}).GetUserByPhonenumber(param.Phonenumber); user.UserId > 0 && user.UserId != param.UserId {
+		if user := c.UserService.GetUserByPhonenumber(param.Phonenumber); user.UserId > 0 && user.UserId != param.UserId {
 			response.NewError().SetMsg("Failed to modify user " + param.UserName + ", phone number already exists").Json(ctx)
 			return
 		}
 	}
 
-	if err := (&service.UserService{}).UpdateUser(dto.SaveUser{
+	if err := c.UserService.UpdateUser(dto.SaveUser{
 		UserId:      param.UserId,
 		DeptId:      param.DeptId,
 		NickName:    param.NickName,
@@ -194,8 +249,16 @@ func (*UserController) Update(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Delete user
-func (*UserController) Remove(ctx *gin.Context) {
+// Remove deletes one or more users.
+// @Summary Delete user
+// @Description Deletes users by their IDs.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param userIds path string true "User IDs, comma-separated"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/user/{userIds} [delete]
+func (c *UserController) Remove(ctx *gin.Context) {
 	userIds, err := utils.StringToIntSlice(ctx.Param("userIds"), ",")
 	if err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
@@ -207,7 +270,7 @@ func (*UserController) Remove(ctx *gin.Context) {
 		return
 	}
 
-	if err = (&service.UserService{}).DeleteUser(userIds); err != nil {
+	if err = c.UserService.DeleteUser(userIds); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
@@ -215,8 +278,16 @@ func (*UserController) Remove(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Change user status
-func (*UserController) ChangeStatus(ctx *gin.Context) {
+// ChangeStatus changes the status of a user.
+// @Summary Change user status
+// @Description Changes the status (e.g., active/inactive) of a user.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.UpdateUserRequest true "User status data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/user/changeStatus [put]
+func (c *UserController) ChangeStatus(ctx *gin.Context) {
 	var param dto.UpdateUserRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -229,7 +300,7 @@ func (*UserController) ChangeStatus(ctx *gin.Context) {
 		return
 	}
 
-	if err := (&service.UserService{}).UpdateUser(dto.SaveUser{
+	if err := c.UserService.UpdateUser(dto.SaveUser{
 		UserId:   param.UserId,
 		Status:   param.Status,
 		UpdateBy: security.GetAuthUserName(ctx),
@@ -241,8 +312,16 @@ func (*UserController) ChangeStatus(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Reset user password
-func (*UserController) ResetPwd(ctx *gin.Context) {
+// ResetPwd resets a user's password.
+// @Summary Reset user password
+// @Description Resets the password for a specific user.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.UpdateUserRequest true "User password data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/user/resetPwd [put]
+func (c *UserController) ResetPwd(ctx *gin.Context) {
 	var param dto.UpdateUserRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -255,7 +334,7 @@ func (*UserController) ResetPwd(ctx *gin.Context) {
 		return
 	}
 
-	if err := (&service.UserService{}).UpdateUser(dto.SaveUser{
+	if err := c.UserService.UpdateUser(dto.SaveUser{
 		UserId:   param.UserId,
 		Password: password.Generate(param.Password),
 		UpdateBy: security.GetAuthUserName(ctx),
@@ -267,34 +346,39 @@ func (*UserController) ResetPwd(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Get authorized roles by user ID
-func (*UserController) AuthRole(ctx *gin.Context) {
+// AuthRole retrieves authorized roles for a user.
+// @Summary Get authorized roles by user ID
+// @Description Retrieves a list of all roles, indicating which are assigned to a specific user.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param userId path int true "User ID"
+// @Success 200 {object} response.Response{data=map[string]interface{}} "Success"
+// @Router /system/user/authRole/{userId} [get]
+func (c *UserController) AuthRole(ctx *gin.Context) {
 	userId, _ := strconv.Atoi(ctx.Param("userId"))
 
-	response := response.NewSuccess()
+	resp := response.NewSuccess()
 
 	var userHasRoleIds []int
 
 	if userId > 0 {
-		user := (&service.UserService{}).GetUserByUserId(userId)
-
+		user := c.UserService.GetUserByUserId(userId)
 		user.Admin = user.UserId == 1
-
-		dept := (&service.DeptService{}).GetDeptByDeptId(user.DeptId)
-
-		roles := (&service.RoleService{}).GetRoleListByUserId(user.UserId)
+		dept := c.DeptService.GetDeptByDeptId(user.DeptId)
+		roles := c.RoleService.GetRoleListByUserId(user.UserId)
 		for _, role := range roles {
 			userHasRoleIds = append(userHasRoleIds, role.RoleId)
 		}
 
-		response.SetData("user", dto.AuthUserInfoResponse{
+		resp.SetData("user", dto.AuthUserInfoResponse{
 			UserDetailResponse: user,
 			Dept:               dept,
 			Roles:              roles,
 		})
 	}
 
-	roles, _ := (&service.RoleService{}).GetRoleList(dto.RoleListRequest{}, false)
+	roles, _ := c.RoleService.GetRoleList(dto.RoleListRequest{}, false)
 	if userId != 1 {
 		roles = utils.Filter(roles, func(role dto.RoleListResponse) bool {
 			return role.RoleId != 1
@@ -306,13 +390,21 @@ func (*UserController) AuthRole(ctx *gin.Context) {
 			}
 		}
 	}
-	response.SetData("roles", roles)
+	resp.SetData("roles", roles)
 
-	response.Json(ctx)
+	resp.Json(ctx)
 }
 
-// User authorized role
-func (*UserController) AddAuthRole(ctx *gin.Context) {
+// AddAuthRole assigns roles to a user.
+// @Summary User authorized role
+// @Description Assigns a set of roles to a specific user.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.AddUserAuthRoleRequest true "User and Role IDs"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/user/authRole [put]
+func (c *UserController) AddAuthRole(ctx *gin.Context) {
 	var param dto.AddUserAuthRoleRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -326,7 +418,7 @@ func (*UserController) AddAuthRole(ctx *gin.Context) {
 		return
 	}
 
-	if err := (&service.UserService{}).AddAuthRole(param.UserId, roleIds); err != nil {
+	if err := c.UserService.AddAuthRole(param.UserId, roleIds); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
@@ -334,8 +426,14 @@ func (*UserController) AddAuthRole(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Import user template
-func (*UserController) ImportTemplate(ctx *gin.Context) {
+// ImportTemplate provides a template for importing user data.
+// @Summary Import user template
+// @Description Downloads an Excel template for importing user data.
+// @Tags System
+// @Produce octet-stream
+// @Success 200 {file} file "Excel template"
+// @Router /system/user/importTemplate [post]
+func (c *UserController) ImportTemplate(ctx *gin.Context) {
 	list := make([]dto.UserImportRequest, 0)
 
 	list = append(list, dto.UserImportRequest{
@@ -357,8 +455,17 @@ func (*UserController) ImportTemplate(ctx *gin.Context) {
 	excel.DownLoadExcel("user_template_"+time.Now().Format("20060102150405"), ctx.Writer, file)
 }
 
-// Import user data
-func (*UserController) ImportData(ctx *gin.Context) {
+// ImportData imports user data from an Excel file.
+// @Summary Import user data
+// @Description Imports user data from an Excel file, with an option to update existing users.
+// @Tags System
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file"
+// @Param updateSupport query bool false "Whether to update existing user data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/user/importData [post]
+func (c *UserController) ImportData(ctx *gin.Context) {
 	file, err := ctx.FormFile("file")
 	if err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
@@ -398,7 +505,7 @@ func (*UserController) ImportData(ctx *gin.Context) {
 	authUserName := security.GetAuthUserName(ctx)
 
 	for _, item := range list {
-		user := (&service.UserService{}).GetUserByUsername(item.UserName)
+		user := c.UserService.GetUserByUsername(item.UserName)
 
 		// Insert new user
 		if user.UserId <= 0 {
@@ -411,26 +518,26 @@ func (*UserController) ImportData(ctx *gin.Context) {
 				Sex:         item.Sex,
 				Status:      item.Status,
 			}); err != nil {
-				failNum = failNum + 1
+				failNum++
 				failMsg = append(failMsg, strconv.Itoa(failNum)+", Account "+item.UserName+" failed to be added: "+err.Error())
 				continue
 			}
-			if err = (&service.UserService{}).CreateUser(dto.SaveUser{
+			if err = c.UserService.CreateUser(dto.SaveUser{
 				DeptId:      item.DeptId,
 				UserName:    item.UserName,
 				NickName:    item.NickName,
 				Email:       item.Email,
 				Phonenumber: item.Phonenumber,
 				Sex:         item.Sex,
-				Password:    password.Generate((&service.ConfigService{}).GetConfigCacheByConfigKey("sys.user.initPassword").ConfigValue),
+				Password:    password.Generate(c.ConfigService.GetConfigCacheByConfigKey("sys.user.initPassword").ConfigValue),
 				Status:      item.Status,
 				CreateBy:    authUserName,
 			}, nil, nil); err != nil {
-				failNum = failNum + 1
+				failNum++
 				failMsg = append(failMsg, strconv.Itoa(failNum)+", Account "+item.UserName+" failed to be added: "+err.Error())
 				continue
 			}
-			successNum = successNum + 1
+			successNum++
 			continue
 		} else if updateSupport {
 			if err = validator.UpdateUserValidator(dto.UpdateUserRequest{
@@ -442,12 +549,12 @@ func (*UserController) ImportData(ctx *gin.Context) {
 				Sex:         item.Sex,
 				Status:      item.Status,
 			}); err != nil {
-				failNum = failNum + 1
+				failNum++
 				failMsg = append(failMsg, strconv.Itoa(failNum)+", Account "+item.UserName+" failed to be updated: "+err.Error())
 				continue
 			}
 			// Update existing user
-			if err = (&service.UserService{}).UpdateUser(dto.SaveUser{
+			if err = c.UserService.UpdateUser(dto.SaveUser{
 				UserId:      user.UserId,
 				DeptId:      item.DeptId,
 				NickName:    item.NickName,
@@ -457,15 +564,14 @@ func (*UserController) ImportData(ctx *gin.Context) {
 				Status:      item.Status,
 				UpdateBy:    authUserName,
 			}, nil, nil); err != nil {
-				failNum = failNum + 1
+				failNum++
 				failMsg = append(failMsg, strconv.Itoa(failNum)+", Account "+item.UserName+" failed to be updated: "+err.Error())
 				continue
 			}
-			successNum = successNum + 1
-			// successMsg = append(successMsg, strconv.Itoa(successNum)+", Account "+item.UserName+" updated successfully")
+			successNum++
 			continue
 		} else {
-			failNum = failNum + 1
+			failNum++
 			failMsg = append(failMsg, strconv.Itoa(failNum)+", Account "+item.UserName+" already exists")
 		}
 	}
@@ -478,8 +584,16 @@ func (*UserController) ImportData(ctx *gin.Context) {
 	response.NewSuccess().SetMsg("Import successful, " + strconv.Itoa(successNum) + " pieces of data in total").Json(ctx)
 }
 
-// Export user data
-func (*UserController) Export(ctx *gin.Context) {
+// Export exports user data to an Excel file.
+// @Summary Export user data
+// @Description Exports user data to an Excel file based on query parameters.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param query body dto.UserListRequest true "Query parameters"
+// @Success 200 {file} file "Excel file"
+// @Router /system/user/export [post]
+func (c *UserController) Export(ctx *gin.Context) {
 	var param dto.UserListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -489,7 +603,7 @@ func (*UserController) Export(ctx *gin.Context) {
 
 	list := make([]dto.UserExportResponse, 0)
 
-	users, _ := (&service.UserService{}).GetUserList(param, security.GetAuthUserId(ctx), false)
+	users, _ := c.UserService.GetUserList(param, security.GetAuthUserId(ctx), false)
 	for _, user := range users {
 
 		loginDate := user.LoginDate.Format("2006-01-02 15:04:05")
@@ -521,15 +635,19 @@ func (*UserController) Export(ctx *gin.Context) {
 	excel.DownLoadExcel("user_"+time.Now().Format("20060102150405"), ctx.Writer, file)
 }
 
-// Get personal information
-func (*UserController) GetProfile(ctx *gin.Context) {
-	user := (&service.UserService{}).GetUserByUserId(security.GetAuthUserId(ctx))
-
+// GetProfile retrieves the profile of the currently authenticated user.
+// @Summary Get personal information
+// @Description Retrieves the profile, roles, and posts of the currently authenticated user.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Response{data=map[string]interface{}} "Success"
+// @Router /system/user/profile [get]
+func (c *UserController) GetProfile(ctx *gin.Context) {
+	user := c.UserService.GetUserByUserId(security.GetAuthUserId(ctx))
 	user.Admin = user.UserId == 1
-
-	dept := (&service.DeptService{}).GetDeptByDeptId(user.DeptId)
-
-	roles := (&service.RoleService{}).GetRoleListByUserId(user.UserId)
+	dept := c.DeptService.GetDeptByDeptId(user.DeptId)
+	roles := c.RoleService.GetRoleListByUserId(user.UserId)
 
 	data := dto.AuthUserInfoResponse{
 		UserDetailResponse: user,
@@ -538,10 +656,10 @@ func (*UserController) GetProfile(ctx *gin.Context) {
 	}
 
 	// Get role group
-	roleGroup := (&service.RoleService{}).GetRoleNamesByUserId(user.UserId)
+	roleGroup := c.RoleService.GetRoleNamesByUserId(user.UserId)
 
 	// Get post group
-	postGroup := (&service.PostService{}).GetPostNamesByUserId(user.UserId)
+	postGroup := c.PostService.GetPostNamesByUserId(user.UserId)
 
 	response.NewSuccess().
 		SetData("data", data).
@@ -550,8 +668,16 @@ func (*UserController) GetProfile(ctx *gin.Context) {
 		Json(ctx)
 }
 
-// Update personal information
-func (*UserController) UpdateProfile(ctx *gin.Context) {
+// UpdateProfile updates the profile of the currently authenticated user.
+// @Summary Update personal information
+// @Description Updates the profile information of the currently authenticated user.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.UpdateProfileRequest true "Profile data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/user/profile [put]
+func (c *UserController) UpdateProfile(ctx *gin.Context) {
 	var param dto.UpdateProfileRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -564,7 +690,7 @@ func (*UserController) UpdateProfile(ctx *gin.Context) {
 		return
 	}
 
-	if err := (&service.UserService{}).UpdateUser(dto.SaveUser{
+	if err := c.UserService.UpdateUser(dto.SaveUser{
 		UserId:      security.GetAuthUserId(ctx),
 		NickName:    param.NickName,
 		Email:       param.Email,
@@ -578,8 +704,16 @@ func (*UserController) UpdateProfile(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Update personal password
-func (*UserController) UserProfileUpdatePwd(ctx *gin.Context) {
+// UserProfileUpdatePwd updates the password of the currently authenticated user.
+// @Summary Update personal password
+// @Description Updates the password for the currently authenticated user.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.UserProfileUpdatePwdRequest true "Password data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/user/profile/updatePwd [put]
+func (c *UserController) UserProfileUpdatePwd(ctx *gin.Context) {
 	var param dto.UserProfileUpdatePwdRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -592,13 +726,13 @@ func (*UserController) UserProfileUpdatePwd(ctx *gin.Context) {
 		return
 	}
 
-	user := (&service.UserService{}).GetUserByUserId(security.GetAuthUserId(ctx))
+	user := c.UserService.GetUserByUserId(security.GetAuthUserId(ctx))
 	if !password.Verify(user.Password, param.OldPassword) {
 		response.NewError().SetMsg("Incorrect old password").Json(ctx)
 		return
 	}
 
-	if err := (&service.UserService{}).UpdateUser(dto.SaveUser{
+	if err := c.UserService.UpdateUser(dto.SaveUser{
 		UserId:   user.UserId,
 		Password: password.Generate(param.NewPassword),
 	}, nil, nil); err != nil {
@@ -609,8 +743,16 @@ func (*UserController) UserProfileUpdatePwd(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Upload avatar
-func (*UserController) UserProfileUpdateAvatar(ctx *gin.Context) {
+// UserProfileUpdateAvatar updates the avatar of the currently authenticated user.
+// @Summary Upload avatar
+// @Description Updates the avatar for the currently authenticated user.
+// @Tags System
+// @Accept multipart/form-data
+// @Produce json
+// @Param avatarfile formData file true "Avatar file"
+// @Success 200 {object} response.Response{data=map[string]string} "Success"
+// @Router /system/user/profile/avatar [post]
+func (c *UserController) UserProfileUpdateAvatar(ctx *gin.Context) {
 	fileHeader, err := ctx.FormFile("avatarfile")
 	if err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
@@ -622,6 +764,7 @@ func (*UserController) UserProfileUpdateAvatar(ctx *gin.Context) {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
+	defer file.Close()
 
 	fileContent, err := io.ReadAll(file)
 	if err != nil {
@@ -648,7 +791,7 @@ func (*UserController) UserProfileUpdateAvatar(ctx *gin.Context) {
 
 	imgUrl := "/" + fileResult.UrlPath + fileResult.FileName
 
-	if err = (&service.UserService{}).UpdateUser(dto.SaveUser{
+	if err = c.UserService.UpdateUser(dto.SaveUser{
 		UserId: security.GetAuthUserId(ctx),
 		Avatar: imgUrl,
 	}, nil, nil); err != nil {

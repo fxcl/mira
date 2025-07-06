@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+
 	"mira/anima/dal"
 	"mira/app/dto"
 	"mira/app/model"
@@ -109,4 +110,9 @@ func (s *ConfigService) GetConfigCacheByConfigKey(configKey string) dto.ConfigDe
 	}
 
 	return config
+}
+
+// Refresh cache
+func (s *ConfigService) RefreshCache() error {
+	return dal.Redis.Del(context.Background(), rediskey.SysConfigKey).Err()
 }

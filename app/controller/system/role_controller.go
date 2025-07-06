@@ -1,23 +1,46 @@
 package systemcontroller
 
 import (
+	"strconv"
+	"time"
+
 	"mira/anima/response"
 	"mira/app/dto"
 	"mira/app/security"
 	"mira/app/service"
 	"mira/app/validator"
 	"mira/common/utils"
-	"strconv"
-	"time"
 
 	"gitee.com/hanshuangjianke/go-excel/excel"
 	"github.com/gin-gonic/gin"
 )
 
-type RoleController struct{}
+// RoleController handles role-related operations.
+type RoleController struct {
+	RoleService *service.RoleService
+	DeptService *service.DeptService
+	UserService *service.UserService
+}
 
-// Role list
-func (*RoleController) List(ctx *gin.Context) {
+// NewRoleController creates a new RoleController.
+func NewRoleController(roleService *service.RoleService, deptService *service.DeptService, userService *service.UserService) *RoleController {
+	return &RoleController{
+		RoleService: roleService,
+		DeptService: deptService,
+		UserService: userService,
+	}
+}
+
+// List retrieves a paginated list of roles.
+// @Summary Get role list
+// @Description Retrieves a paginated list of roles based on query parameters.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param query body dto.RoleListRequest true "Query parameters"
+// @Success 200 {object} response.Response{data=response.PageData{list=[]dto.RoleListResponse}} "Success"
+// @Router /system/role/list [get]
+func (c *RoleController) List(ctx *gin.Context) {
 	var param dto.RoleListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -25,22 +48,38 @@ func (*RoleController) List(ctx *gin.Context) {
 		return
 	}
 
-	roles, total := (&service.RoleService{}).GetRoleList(param, true)
+	roles, total := c.RoleService.GetRoleList(param, true)
 
 	response.NewSuccess().SetPageData(roles, total).Json(ctx)
 }
 
-// Role details
-func (*RoleController) Detail(ctx *gin.Context) {
+// Detail retrieves the details of a specific role.
+// @Summary Get role details
+// @Description Retrieves the details of a role by its ID.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param roleId path int true "Role ID"
+// @Success 200 {object} response.Response{data=dto.RoleDetailResponse} "Success"
+// @Router /system/role/{roleId} [get]
+func (c *RoleController) Detail(ctx *gin.Context) {
 	roleId, _ := strconv.Atoi(ctx.Param("roleId"))
 
-	role := (&service.RoleService{}).GetRoleByRoleId(roleId)
+	role := c.RoleService.GetRoleByRoleId(roleId)
 
 	response.NewSuccess().SetData("data", role).Json(ctx)
 }
 
-// Add role
-func (*RoleController) Create(ctx *gin.Context) {
+// Create adds a new role.
+// @Summary Add role
+// @Description Adds a new role to the system.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.CreateRoleRequest true "Role data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/role [post]
+func (c *RoleController) Create(ctx *gin.Context) {
 	var param dto.CreateRoleRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -53,12 +92,12 @@ func (*RoleController) Create(ctx *gin.Context) {
 		return
 	}
 
-	if role := (&service.RoleService{}).GetRoleByRoleName(param.RoleName); role.RoleId > 0 {
+	if role := c.RoleService.GetRoleByRoleName(param.RoleName); role.RoleId > 0 {
 		response.NewError().SetMsg("Failed to add role " + param.RoleName + ", role name already exists").Json(ctx)
 		return
 	}
 
-	if role := (&service.RoleService{}).GetRoleByRoleKey(param.RoleKey); role.RoleId > 0 {
+	if role := c.RoleService.GetRoleByRoleKey(param.RoleKey); role.RoleId > 0 {
 		response.NewError().SetMsg("Failed to add role " + param.RoleName + ", permission character already exists").Json(ctx)
 		return
 	}
@@ -71,7 +110,7 @@ func (*RoleController) Create(ctx *gin.Context) {
 		deptCheckStrictly = 1
 	}
 
-	if err := (&service.RoleService{}).CreateRole(dto.SaveRole{
+	if err := c.RoleService.CreateRole(dto.SaveRole{
 		RoleName:          param.RoleName,
 		RoleKey:           param.RoleKey,
 		RoleSort:          param.RoleSort,
@@ -88,8 +127,16 @@ func (*RoleController) Create(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Update role
-func (*RoleController) Update(ctx *gin.Context) {
+// Update modifies an existing role.
+// @Summary Update role
+// @Description Modifies an existing role in the system.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.UpdateRoleRequest true "Role data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/role [put]
+func (c *RoleController) Update(ctx *gin.Context) {
 	var param dto.UpdateRoleRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -102,12 +149,12 @@ func (*RoleController) Update(ctx *gin.Context) {
 		return
 	}
 
-	if role := (&service.RoleService{}).GetRoleByRoleName(param.RoleName); role.RoleId > 0 && role.RoleId != param.RoleId {
+	if role := c.RoleService.GetRoleByRoleName(param.RoleName); role.RoleId > 0 && role.RoleId != param.RoleId {
 		response.NewError().SetMsg("Failed to modify role " + param.RoleName + ", role name already exists").Json(ctx)
 		return
 	}
 
-	if role := (&service.RoleService{}).GetRoleByRoleKey(param.RoleKey); role.RoleId > 0 && role.RoleId != param.RoleId {
+	if role := c.RoleService.GetRoleByRoleKey(param.RoleKey); role.RoleId > 0 && role.RoleId != param.RoleId {
 		response.NewError().SetMsg("Failed to modify role " + param.RoleName + ", permission character already exists").Json(ctx)
 		return
 	}
@@ -120,7 +167,7 @@ func (*RoleController) Update(ctx *gin.Context) {
 		deptCheckStrictly = 1
 	}
 
-	if err := (&service.RoleService{}).UpdateRole(dto.SaveRole{
+	if err := c.RoleService.UpdateRole(dto.SaveRole{
 		RoleId:            param.RoleId,
 		RoleName:          param.RoleName,
 		RoleKey:           param.RoleKey,
@@ -138,15 +185,23 @@ func (*RoleController) Update(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Delete role
-func (*RoleController) Remove(ctx *gin.Context) {
+// Remove deletes one or more roles.
+// @Summary Delete role
+// @Description Deletes roles by their IDs.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param roleIds path string true "Role IDs, comma-separated"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/role/{roleIds} [delete]
+func (c *RoleController) Remove(ctx *gin.Context) {
 	roleIds, err := utils.StringToIntSlice(ctx.Param("roleIds"), ",")
 	if err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
 
-	roles := (&service.RoleService{}).GetRoleListByUserId(security.GetAuthUserId(ctx))
+	roles := c.RoleService.GetRoleListByUserId(security.GetAuthUserId(ctx))
 
 	for _, role := range roles {
 		if err = validator.RemoveRoleValidator(roleIds, role.RoleId, role.RoleName); err != nil {
@@ -155,7 +210,7 @@ func (*RoleController) Remove(ctx *gin.Context) {
 		}
 	}
 
-	if err = (&service.RoleService{}).DeleteRole(roleIds); err != nil {
+	if err = c.RoleService.DeleteRole(roleIds); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
@@ -163,8 +218,16 @@ func (*RoleController) Remove(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Change role status
-func (*RoleController) ChangeStatus(ctx *gin.Context) {
+// ChangeStatus changes the status of a role.
+// @Summary Change role status
+// @Description Changes the status (e.g., active/inactive) of a role.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.UpdateRoleRequest true "Role status data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/role/changeStatus [put]
+func (c *RoleController) ChangeStatus(ctx *gin.Context) {
 	var param dto.UpdateRoleRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -177,7 +240,7 @@ func (*RoleController) ChangeStatus(ctx *gin.Context) {
 		return
 	}
 
-	if err := (&service.RoleService{}).UpdateRole(dto.SaveRole{
+	if err := c.RoleService.UpdateRole(dto.SaveRole{
 		RoleId:   param.RoleId,
 		Status:   param.Status,
 		UpdateBy: security.GetAuthUserName(ctx),
@@ -189,19 +252,35 @@ func (*RoleController) ChangeStatus(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Department tree
-func (*RoleController) DeptTree(ctx *gin.Context) {
+// DeptTree retrieves the department tree for a specific role.
+// @Summary Get department tree for role
+// @Description Retrieves the department tree and the department IDs associated with a specific role.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param roleId path int true "Role ID"
+// @Success 200 {object} response.Response{data=map[string]interface{}} "Success, returns 'depts' and 'checkedKeys'"
+// @Router /system/role/deptTree/{roleId} [get]
+func (c *RoleController) DeptTree(ctx *gin.Context) {
 	roleId, _ := strconv.Atoi(ctx.Param("roleId"))
-	roleHasDeptIds := (&service.DeptService{}).GetDeptIdsByRoleId(roleId)
+	roleHasDeptIds := c.DeptService.GetDeptIdsByRoleId(roleId)
 
-	depts := (&service.DeptService{}).DeptSelect()
-	tree := (&service.DeptService{}).DeptSeleteToTree(depts, 0)
+	depts := c.DeptService.DeptSelect()
+	tree := c.DeptService.DeptSeleteToTree(depts, 0)
 
 	response.NewSuccess().SetData("depts", tree).SetData("checkedKeys", roleHasDeptIds).Json(ctx)
 }
 
-// Assign data permissions
-func (*RoleController) DataScope(ctx *gin.Context) {
+// DataScope assigns data permissions to a role.
+// @Summary Assign data permissions
+// @Description Assigns data permissions (e.g., department access) to a role.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.UpdateRoleRequest true "Data scope data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/role/dataScope [put]
+func (c *RoleController) DataScope(ctx *gin.Context) {
 	var param dto.UpdateRoleRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -214,7 +293,7 @@ func (*RoleController) DataScope(ctx *gin.Context) {
 		deptCheckStrictly = 1
 	}
 
-	if err := (&service.RoleService{}).UpdateRole(dto.SaveRole{
+	if err := c.RoleService.UpdateRole(dto.SaveRole{
 		RoleId:            param.RoleId,
 		DataScope:         param.DataScope,
 		DeptCheckStrictly: &deptCheckStrictly,
@@ -227,8 +306,16 @@ func (*RoleController) DataScope(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Query the list of allocated user roles
-func (*RoleController) RoleAuthUserAllocatedList(ctx *gin.Context) {
+// RoleAuthUserAllocatedList retrieves a list of users allocated to a role.
+// @Summary Query allocated user role list
+// @Description Retrieves a paginated list of users who have been allocated to a specific role.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param query body dto.RoleAuthUserAllocatedListRequest true "Query parameters"
+// @Success 200 {object} response.Response{data=response.PageData{list=[]dto.UserListResponse}} "Success"
+// @Router /system/role/authUser/allocatedList [get]
+func (c *RoleController) RoleAuthUserAllocatedList(ctx *gin.Context) {
 	var param dto.RoleAuthUserAllocatedListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -236,13 +323,21 @@ func (*RoleController) RoleAuthUserAllocatedList(ctx *gin.Context) {
 		return
 	}
 
-	users, total := (&service.UserService{}).GetUserListByRoleId(param, security.GetAuthUserId(ctx), true)
+	users, total := c.UserService.GetUserListByRoleId(param, security.GetAuthUserId(ctx), true)
 
 	response.NewSuccess().SetPageData(users, total).Json(ctx)
 }
 
-// Query the list of unallocated user roles
-func (*RoleController) RoleAuthUserUnallocatedList(ctx *gin.Context) {
+// RoleAuthUserUnallocatedList retrieves a list of users not allocated to a role.
+// @Summary Query unallocated user role list
+// @Description Retrieves a paginated list of users who have not been allocated to a specific role.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param query body dto.RoleAuthUserAllocatedListRequest true "Query parameters"
+// @Success 200 {object} response.Response{data=response.PageData{list=[]dto.UserListResponse}} "Success"
+// @Router /system/role/authUser/unallocatedList [get]
+func (c *RoleController) RoleAuthUserUnallocatedList(ctx *gin.Context) {
 	var param dto.RoleAuthUserAllocatedListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -250,13 +345,21 @@ func (*RoleController) RoleAuthUserUnallocatedList(ctx *gin.Context) {
 		return
 	}
 
-	users, total := (&service.UserService{}).GetUserListByRoleId(param, security.GetAuthUserId(ctx), false)
+	users, total := c.UserService.GetUserListByRoleId(param, security.GetAuthUserId(ctx), false)
 
 	response.NewSuccess().SetPageData(users, total).Json(ctx)
 }
 
-// Batch select user authorization
-func (*RoleController) RoleAuthUserSelectAll(ctx *gin.Context) {
+// RoleAuthUserSelectAll authorizes multiple users to a role.
+// @Summary Batch select user authorization
+// @Description Authorizes multiple users to a specific role in a single operation.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.RoleAuthUserSelectAllRequest true "Authorization data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/role/authUser/selectAll [put]
+func (c *RoleController) RoleAuthUserSelectAll(ctx *gin.Context) {
 	var param dto.RoleAuthUserSelectAllRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -270,7 +373,7 @@ func (*RoleController) RoleAuthUserSelectAll(ctx *gin.Context) {
 		return
 	}
 
-	if err = (&service.RoleService{}).AuthUserSelectAll(param.RoleId, userIds); err != nil {
+	if err = c.RoleService.AuthUserSelectAll(param.RoleId, userIds); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
@@ -278,8 +381,16 @@ func (*RoleController) RoleAuthUserSelectAll(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Cancel authorized user
-func (*RoleController) RoleAuthUserCancel(ctx *gin.Context) {
+// RoleAuthUserCancel cancels a user's authorization for a role.
+// @Summary Cancel authorized user
+// @Description Cancels a single user's authorization for a specific role.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.RoleAuthUserCancelRequest true "Cancellation data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/role/authUser/cancel [put]
+func (c *RoleController) RoleAuthUserCancel(ctx *gin.Context) {
 	var param dto.RoleAuthUserCancelRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -287,7 +398,7 @@ func (*RoleController) RoleAuthUserCancel(ctx *gin.Context) {
 		return
 	}
 
-	if err := (&service.RoleService{}).AuthUserDelete(param.RoleId, []int{param.UserId}); err != nil {
+	if err := c.RoleService.AuthUserDelete(param.RoleId, []int{param.UserId}); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
@@ -295,8 +406,16 @@ func (*RoleController) RoleAuthUserCancel(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Batch cancel authorized users
-func (*RoleController) RoleAuthUserCancelAll(ctx *gin.Context) {
+// RoleAuthUserCancelAll cancels authorization for multiple users.
+// @Summary Batch cancel authorized user
+// @Description Cancels authorization for multiple users for a specific role.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.RoleAuthUserCancelAllRequest true "Batch cancellation data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/role/authUser/cancelAll [put]
+func (c *RoleController) RoleAuthUserCancelAll(ctx *gin.Context) {
 	var param dto.RoleAuthUserCancelAllRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -310,7 +429,7 @@ func (*RoleController) RoleAuthUserCancelAll(ctx *gin.Context) {
 		return
 	}
 
-	if err := (&service.RoleService{}).AuthUserDelete(param.RoleId, userIds); err != nil {
+	if err := c.RoleService.AuthUserDelete(param.RoleId, userIds); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
@@ -318,8 +437,16 @@ func (*RoleController) RoleAuthUserCancelAll(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Data export
-func (*RoleController) Export(ctx *gin.Context) {
+// Export exports role data to an Excel file.
+// @Summary Export roles
+// @Description Exports role data to an Excel file based on query parameters.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param query body dto.RoleListRequest true "Query parameters"
+// @Success 200 {file} file "Excel file"
+// @Router /system/role/export [post]
+func (c *RoleController) Export(ctx *gin.Context) {
 	var param dto.RoleListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -329,7 +456,7 @@ func (*RoleController) Export(ctx *gin.Context) {
 
 	list := make([]dto.RoleExportResponse, 0)
 
-	roles, _ := (&service.RoleService{}).GetRoleList(param, false)
+	roles, _ := c.RoleService.GetRoleList(param, false)
 	for _, role := range roles {
 		list = append(list, dto.RoleExportResponse{
 			RoleId:    role.RoleId,

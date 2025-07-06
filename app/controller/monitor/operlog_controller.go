@@ -1,23 +1,38 @@
 package monitorcontroller
 
 import (
+	"strconv"
+	"time"
+
 	"mira/anima/response"
 	"mira/app/dto"
 	"mira/app/service"
 	"mira/common/utils"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
 
 	"gitee.com/hanshuangjianke/go-excel/excel"
 	"github.com/gin-gonic/gin"
 )
 
-type OperlogController struct{}
+// OperlogController handles operation log related operations.
+type OperlogController struct {
+	OperLogService *service.OperLogService
+}
 
-// Operation log list
-func (*OperlogController) List(ctx *gin.Context) {
+// NewOperlogController creates a new OperlogController.
+func NewOperlogController(operLogService *service.OperLogService) *OperlogController {
+	return &OperlogController{OperLogService: operLogService}
+}
+
+// List retrieves a paginated list of operation logs.
+// @Summary Get operation log list
+// @Description Retrieves a paginated list of operation logs based on query parameters.
+// @Tags Monitor
+// @Accept json
+// @Produce json
+// @Param query body dto.OperLogListRequest true "Query parameters"
+// @Success 200 {object} response.Response{data=response.PageData{list=[]dto.OperLogListResponse}} "Success"
+// @Router /monitor/operlog/list [get]
+func (c *OperlogController) List(ctx *gin.Context) {
 	var param dto.OperLogListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -25,32 +40,30 @@ func (*OperlogController) List(ctx *gin.Context) {
 		return
 	}
 
-	// The default sorting rule is descending (DESC)
-	param.OrderRule = "DESC"
-	if strings.HasPrefix(param.IsAsc, "asc") {
-		param.OrderRule = "ASC"
-	}
+	param.OrderRule, param.OrderByColumn = utils.ParseSort(param.IsAsc, param.OrderByColumn, "operTime")
 
-	// Sort field camel case to snake case
-	if param.OrderByColumn == "" {
-		param.OrderByColumn = "operTime"
-	}
-	param.OrderByColumn = strings.ToLower(regexp.MustCompile("([A-Z])").ReplaceAllString(param.OrderByColumn, "_${1}"))
-
-	operLogs, total := (&service.OperLogService{}).GetOperLogList(param, true)
+	operLogs, total := c.OperLogService.GetOperLogList(param, true)
 
 	response.NewSuccess().SetPageData(operLogs, total).Json(ctx)
 }
 
-// Delete operation log
-func (*OperlogController) Remove(ctx *gin.Context) {
+// Remove deletes one or more operation logs.
+// @Summary Delete operation log
+// @Description Deletes operation logs by their IDs.
+// @Tags Monitor
+// @Accept json
+// @Produce json
+// @Param operIds path string true "Operation log IDs, comma-separated"
+// @Success 200 {object} response.Response "Success"
+// @Router /monitor/operlog/{operIds} [delete]
+func (c *OperlogController) Remove(ctx *gin.Context) {
 	operIds, err := utils.StringToIntSlice(ctx.Param("operIds"), ",")
 	if err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
 
-	if err = (&service.OperLogService{}).DeleteOperLog(operIds); err != nil {
+	if err = c.OperLogService.DeleteOperLog(operIds); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
@@ -58,9 +71,16 @@ func (*OperlogController) Remove(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Clean operation log
-func (*OperlogController) Clean(ctx *gin.Context) {
-	if err := (&service.OperLogService{}).DeleteOperLog(nil); err != nil {
+// Clean clears all operation logs.
+// @Summary Clean operation log
+// @Description Clears all operation logs from the system.
+// @Tags Monitor
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Response "Success"
+// @Router /monitor/operlog/clean [delete]
+func (c *OperlogController) Clean(ctx *gin.Context) {
+	if err := c.OperLogService.DeleteOperLog(nil); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
@@ -68,8 +88,16 @@ func (*OperlogController) Clean(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Data export
-func (*OperlogController) Export(ctx *gin.Context) {
+// Export exports operation logs to an Excel file.
+// @Summary Export operation log
+// @Description Exports operation logs to an Excel file based on query parameters.
+// @Tags Monitor
+// @Accept json
+// @Produce json
+// @Param query body dto.OperLogListRequest true "Query parameters"
+// @Success 200 {file} file "Excel file"
+// @Router /monitor/operlog/export [post]
+func (c *OperlogController) Export(ctx *gin.Context) {
 	var param dto.OperLogListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -77,21 +105,11 @@ func (*OperlogController) Export(ctx *gin.Context) {
 		return
 	}
 
-	// The default sorting rule is descending (DESC)
-	param.OrderRule = "DESC"
-	if strings.HasPrefix(param.IsAsc, "asc") {
-		param.OrderRule = "ASC"
-	}
-
-	// Sort field camel case to snake case
-	if param.OrderByColumn == "" {
-		param.OrderByColumn = "operTime"
-	}
-	param.OrderByColumn = strings.ToLower(regexp.MustCompile("([A-Z])").ReplaceAllString(param.OrderByColumn, "_${1}"))
+	param.OrderRule, param.OrderByColumn = utils.ParseSort(param.IsAsc, param.OrderByColumn, "operTime")
 
 	list := make([]dto.OperLogExportResponse, 0)
 
-	operLogs, _ := (&service.OperLogService{}).GetOperLogList(param, false)
+	operLogs, _ := c.OperLogService.GetOperLogList(param, false)
 	for _, operLog := range operLogs {
 		list = append(list, dto.OperLogExportResponse{
 			OperId:        operLog.OperId,

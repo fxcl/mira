@@ -1,26 +1,40 @@
 package systemcontroller
 
 import (
-	"mira/anima/dal"
+	"strconv"
+	"time"
+
 	"mira/anima/response"
 	"mira/app/dto"
 	"mira/app/security"
 	"mira/app/service"
 	"mira/app/validator"
 	"mira/common/utils"
-	"strconv"
-	"time"
-
-	rediskey "mira/common/types/redis-key"
 
 	"gitee.com/hanshuangjianke/go-excel/excel"
 	"github.com/gin-gonic/gin"
 )
 
-type DictTypeController struct{}
+// DictTypeController handles dictionary type operations.
+type DictTypeController struct {
+	DictTypeService *service.DictTypeService
+}
 
-// Dictionary type list
-func (*DictTypeController) List(ctx *gin.Context) {
+// NewDictTypeController creates a new DictTypeController.
+func NewDictTypeController(dictTypeService *service.DictTypeService) *DictTypeController {
+	return &DictTypeController{DictTypeService: dictTypeService}
+}
+
+// List retrieves a paginated list of dictionary types.
+// @Summary Get dictionary type list
+// @Description Retrieves a paginated list of dictionary types based on query parameters.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param query body dto.DictTypeListRequest true "Query parameters"
+// @Success 200 {object} response.Response{data=response.PageData{list=[]dto.DictTypeListResponse}} "Success"
+// @Router /system/dict/type/list [get]
+func (c *DictTypeController) List(ctx *gin.Context) {
 	var param dto.DictTypeListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -28,22 +42,38 @@ func (*DictTypeController) List(ctx *gin.Context) {
 		return
 	}
 
-	dictTypes, total := (&service.DictTypeService{}).GetDictTypeList(param, true)
+	dictTypes, total := c.DictTypeService.GetDictTypeList(param, true)
 
 	response.NewSuccess().SetPageData(dictTypes, total).Json(ctx)
 }
 
-// Dictionary type details
-func (*DictTypeController) Detail(ctx *gin.Context) {
+// Detail retrieves the details of a specific dictionary type.
+// @Summary Get dictionary type details
+// @Description Retrieves the details of a dictionary type by its ID.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param dictId path int true "Dictionary ID"
+// @Success 200 {object} response.Response{data=dto.DictTypeDetailResponse} "Success"
+// @Router /system/dict/type/{dictId} [get]
+func (c *DictTypeController) Detail(ctx *gin.Context) {
 	dictId, _ := strconv.Atoi(ctx.Param("dictId"))
 
-	dictType := (&service.DictTypeService{}).GetDictTypeByDictId(dictId)
+	dictType := c.DictTypeService.GetDictTypeByDictId(dictId)
 
 	response.NewSuccess().SetData("data", dictType).Json(ctx)
 }
 
-// Add dictionary type
-func (*DictTypeController) Create(ctx *gin.Context) {
+// Create adds a new dictionary type.
+// @Summary Add dictionary type
+// @Description Adds a new dictionary type to the system.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.CreateDictTypeRequest true "Dictionary type data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/dict/type [post]
+func (c *DictTypeController) Create(ctx *gin.Context) {
 	var param dto.CreateDictTypeRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -56,12 +86,12 @@ func (*DictTypeController) Create(ctx *gin.Context) {
 		return
 	}
 
-	if dictType := (&service.DictTypeService{}).GetDcitTypeByDictType(param.DictType); dictType.DictId > 0 {
+	if dictType := c.DictTypeService.GetDcitTypeByDictType(param.DictType); dictType.DictId > 0 {
 		response.NewError().SetMsg("Failed to add dictionary " + param.DictName + ", dictionary type already exists").Json(ctx)
 		return
 	}
 
-	if err := (&service.DictTypeService{}).CreateDictType(dto.SaveDictType{
+	if err := c.DictTypeService.CreateDictType(dto.SaveDictType{
 		DictName: param.DictName,
 		DictType: param.DictType,
 		Status:   param.Status,
@@ -75,8 +105,16 @@ func (*DictTypeController) Create(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Update dictionary type
-func (*DictTypeController) Update(ctx *gin.Context) {
+// Update modifies an existing dictionary type.
+// @Summary Update dictionary type
+// @Description Modifies an existing dictionary type in the system.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param body body dto.UpdateDictTypeRequest true "Dictionary type data"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/dict/type [put]
+func (c *DictTypeController) Update(ctx *gin.Context) {
 	var param dto.UpdateDictTypeRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -89,12 +127,12 @@ func (*DictTypeController) Update(ctx *gin.Context) {
 		return
 	}
 
-	if dictType := (&service.DictTypeService{}).GetDcitTypeByDictType(param.DictType); dictType.DictId > 0 && dictType.DictId != param.DictId {
+	if dictType := c.DictTypeService.GetDcitTypeByDictType(param.DictType); dictType.DictId > 0 && dictType.DictId != param.DictId {
 		response.NewError().SetMsg("Failed to modify dictionary " + param.DictName + ", dictionary type already exists").Json(ctx)
 		return
 	}
 
-	if err := (&service.DictTypeService{}).UpdateDictType(dto.SaveDictType{
+	if err := c.DictTypeService.UpdateDictType(dto.SaveDictType{
 		DictId:   param.DictId,
 		DictName: param.DictName,
 		DictType: param.DictType,
@@ -109,15 +147,23 @@ func (*DictTypeController) Update(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Delete dictionary type
-func (*DictTypeController) Remove(ctx *gin.Context) {
+// Remove deletes one or more dictionary types.
+// @Summary Delete dictionary type
+// @Description Deletes dictionary types by their IDs.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param dictIds path string true "Dictionary IDs, comma-separated"
+// @Success 200 {object} response.Response "Success"
+// @Router /system/dict/type/{dictIds} [delete]
+func (c *DictTypeController) Remove(ctx *gin.Context) {
 	dictIds, err := utils.StringToIntSlice(ctx.Param("dictIds"), ",")
 	if err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
 
-	if err = (&service.DictTypeService{}).DeleteDictType(dictIds); err != nil {
+	if err = c.DictTypeService.DeleteDictType(dictIds); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
@@ -125,17 +171,32 @@ func (*DictTypeController) Remove(ctx *gin.Context) {
 	response.NewSuccess().Json(ctx)
 }
 
-// Get dictionary selection box list
-func (*DictTypeController) Optionselect(ctx *gin.Context) {
-	dictTypes, _ := (&service.DictTypeService{}).GetDictTypeList(dto.DictTypeListRequest{
+// Optionselect retrieves a list of dictionary types for selection.
+// @Summary Get dictionary select box list
+// @Description Retrieves a list of all active dictionary types for use in dropdowns.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Response{data=[]dto.DictTypeListResponse} "Success"
+// @Router /system/dict/type/optionselect [get]
+func (c *DictTypeController) Optionselect(ctx *gin.Context) {
+	dictTypes, _ := c.DictTypeService.GetDictTypeList(dto.DictTypeListRequest{
 		Status: "0",
 	}, false)
 
 	response.NewSuccess().SetData("data", dictTypes).Json(ctx)
 }
 
-// Data export
-func (*DictTypeController) Export(ctx *gin.Context) {
+// Export exports dictionary type data to an Excel file.
+// @Summary Export dictionary types
+// @Description Exports dictionary type data to an Excel file based on query parameters.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Param query body dto.DictTypeListRequest true "Query parameters"
+// @Success 200 {file} file "Excel file"
+// @Router /system/dict/type/export [post]
+func (c *DictTypeController) Export(ctx *gin.Context) {
 	var param dto.DictTypeListRequest
 
 	if err := ctx.ShouldBind(&param); err != nil {
@@ -145,7 +206,7 @@ func (*DictTypeController) Export(ctx *gin.Context) {
 
 	list := make([]dto.DictTypeExportResponse, 0)
 
-	dictTypes, _ := (&service.DictTypeService{}).GetDictTypeList(param, false)
+	dictTypes, _ := c.DictTypeService.GetDictTypeList(param, false)
 	for _, dictType := range dictTypes {
 		list = append(list, dto.DictTypeExportResponse{
 			DictId:   dictType.DictId,
@@ -164,9 +225,16 @@ func (*DictTypeController) Export(ctx *gin.Context) {
 	excel.DownLoadExcel("type_"+time.Now().Format("20060102150405"), ctx.Writer, file)
 }
 
-// Refresh cache
-func (*DictTypeController) RefreshCache(ctx *gin.Context) {
-	if err := dal.Redis.Del(ctx.Request.Context(), rediskey.SysDictKey).Err(); err != nil {
+// RefreshCache refreshes the dictionary cache.
+// @Summary Refresh dictionary cache
+// @Description Clears the dictionary cache in Redis.
+// @Tags System
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Response "Success"
+// @Router /system/dict/type/refreshCache [delete]
+func (c *DictTypeController) RefreshCache(ctx *gin.Context) {
+	if err := c.DictTypeService.RefreshCache(); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
 	}
