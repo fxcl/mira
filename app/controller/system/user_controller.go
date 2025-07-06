@@ -15,6 +15,7 @@ import (
 	"mira/common/password"
 	"mira/common/upload"
 	"mira/common/utils"
+	"mira/common/xerrors"
 	"mira/config"
 
 	"gitee.com/hanshuangjianke/go-excel/excel"
@@ -176,6 +177,11 @@ func (c *UserController) Create(ctx *gin.Context) {
 		}
 	}
 
+	hashedPassword, err := password.Generate(param.Password)
+	if err != nil {
+		response.NewError().SetCode(500).SetMsg("Failed to process password").Json(ctx)
+		return
+	}
 	if err := c.UserService.CreateUser(dto.SaveUser{
 		DeptId:      param.DeptId,
 		UserName:    param.UserName,
@@ -183,7 +189,7 @@ func (c *UserController) Create(ctx *gin.Context) {
 		Email:       param.Email,
 		Phonenumber: param.Phonenumber,
 		Sex:         param.Sex,
-		Password:    password.Generate(param.Password),
+		Password:    hashedPassword,
 		Status:      param.Status,
 		Remark:      param.Remark,
 		CreateBy:    security.GetAuthUserName(ctx),
@@ -334,9 +340,14 @@ func (c *UserController) ResetPwd(ctx *gin.Context) {
 		return
 	}
 
+	hashedPassword, err := password.Generate(param.Password)
+	if err != nil {
+		response.NewError().SetCode(500).SetMsg("Failed to process password").Json(ctx)
+		return
+	}
 	if err := c.UserService.UpdateUser(dto.SaveUser{
 		UserId:   param.UserId,
-		Password: password.Generate(param.Password),
+		Password: hashedPassword,
 		UpdateBy: security.GetAuthUserName(ctx),
 	}, nil, nil); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
@@ -522,6 +533,12 @@ func (c *UserController) ImportData(ctx *gin.Context) {
 				failMsg = append(failMsg, strconv.Itoa(failNum)+", Account "+item.UserName+" failed to be added: "+err.Error())
 				continue
 			}
+			hashedPassword, err := password.Generate(c.ConfigService.GetConfigCacheByConfigKey("sys.user.initPassword").ConfigValue)
+			if err != nil {
+				failNum++
+				failMsg = append(failMsg, strconv.Itoa(failNum)+", Account "+item.UserName+" failed to be added: "+err.Error())
+				continue
+			}
 			if err = c.UserService.CreateUser(dto.SaveUser{
 				DeptId:      item.DeptId,
 				UserName:    item.UserName,
@@ -529,7 +546,7 @@ func (c *UserController) ImportData(ctx *gin.Context) {
 				Email:       item.Email,
 				Phonenumber: item.Phonenumber,
 				Sex:         item.Sex,
-				Password:    password.Generate(c.ConfigService.GetConfigCacheByConfigKey("sys.user.initPassword").ConfigValue),
+				Password:    hashedPassword,
 				Status:      item.Status,
 				CreateBy:    authUserName,
 			}, nil, nil); err != nil {
@@ -727,14 +744,23 @@ func (c *UserController) UserProfileUpdatePwd(ctx *gin.Context) {
 	}
 
 	user := c.UserService.GetUserByUserId(security.GetAuthUserId(ctx))
-	if !password.Verify(user.Password, param.OldPassword) {
-		response.NewError().SetMsg("Incorrect old password").Json(ctx)
+	if err := password.Verify(user.Password, param.OldPassword); err != nil {
+		if err == xerrors.ErrMismatchedPassword {
+			response.NewError().SetMsg("Incorrect old password").Json(ctx)
+			return
+		}
+		response.NewError().SetCode(500).SetMsg("Failed to verify password").Json(ctx)
 		return
 	}
 
+	hashedPassword, err := password.Generate(param.NewPassword)
+	if err != nil {
+		response.NewError().SetCode(500).SetMsg("Failed to process password").Json(ctx)
+		return
+	}
 	if err := c.UserService.UpdateUser(dto.SaveUser{
 		UserId:   user.UserId,
-		Password: password.Generate(param.NewPassword),
+		Password: hashedPassword,
 	}, nil, nil); err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return

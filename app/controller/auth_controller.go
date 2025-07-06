@@ -16,6 +16,7 @@ import (
 	"mira/common/captcha"
 	"mira/common/password"
 	"mira/common/types/constant"
+	"mira/common/xerrors"
 	"mira/config"
 
 	rediskey "mira/common/types/redis-key"
@@ -69,10 +70,15 @@ func (*AuthController) Register(ctx *gin.Context) {
 		return
 	}
 
+	hashedPassword, err := password.Generate(param.Password)
+	if err != nil {
+		response.NewError().SetCode(500).SetMsg("Failed to process password").Json(ctx)
+		return
+	}
 	if err := (&service.UserService{}).CreateUser(dto.SaveUser{
 		UserName: param.Username,
 		NickName: param.Username,
-		Password: password.Generate(param.Password),
+		Password: hashedPassword,
 		Status:   "0",
 		Remark:   "Registered user",
 		CreateBy: "Registered user",
@@ -118,10 +124,14 @@ func (*AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	if !password.Verify(user.Password, param.Password) {
-		// The number of password errors is increased by 1, and the cache expiration time is set to the lock time
-		dal.Redis.Set(ctx.Request.Context(), rediskey.LoginPasswordErrorKey+param.Username, count+1, time.Minute*time.Duration(config.Data.User.Password.LockTime))
-		response.NewError().SetMsg("Password error").Json(ctx)
+	if err := password.Verify(user.Password, param.Password); err != nil {
+		if err == xerrors.ErrMismatchedPassword {
+			// The number of password errors is increased by 1, and the cache expiration time is set to the lock time
+			dal.Redis.Set(ctx.Request.Context(), rediskey.LoginPasswordErrorKey+param.Username, count+1, time.Minute*time.Duration(config.Data.User.Password.LockTime))
+			response.NewError().SetMsg("Password error").Json(ctx)
+			return
+		}
+		response.NewError().SetCode(500).SetMsg("Failed to verify password").Json(ctx)
 		return
 	}
 

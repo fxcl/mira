@@ -13,7 +13,8 @@ var (
 	ErrUploadInvalidFileFormat    = errors.New("invalid file format")
 
 	// Captcha
-	ErrCaptcha = errors.New("captcha error")
+	ErrMismatchedPassword = errors.New("mismatched password")
+	ErrCaptcha            = errors.New("captcha error")
 
 	// Common
 	ErrParam = errors.New("parameter error")
