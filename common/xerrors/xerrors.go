@@ -4,6 +4,17 @@ import "errors"
 
 // Validation Errors
 var (
+	// Upload
+	ErrUnsupportedFileType        = errors.New("unsupported file type")
+	ErrUploadDomainNotFound       = errors.New("domain not found, cannot generate access address")
+	ErrUploadFileIncomplete       = errors.New("upload file data is incomplete and cannot be saved")
+	ErrUploadFileMissingSuffix    = errors.New("file missing suffix")
+	ErrUploadFileSizeExceedsLimit = errors.New("file size exceeds the limit")
+	ErrUploadInvalidFileFormat    = errors.New("invalid file format")
+
+	// Captcha
+	ErrCaptcha = errors.New("captcha error")
+
 	// Common
 	ErrParam = errors.New("parameter error")
 

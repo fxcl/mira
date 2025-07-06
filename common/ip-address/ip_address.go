@@ -2,9 +2,11 @@ package ipaddress
 
 import (
 	"encoding/json"
+	"fmt"
+	"net"
+
 	"mira/common/curl"
 	"mira/common/utils"
-	"net"
 
 	"github.com/mileusna/useragent"
 )
@@ -24,7 +26,7 @@ type IpAddress struct {
 }
 
 // GetAddress gets the address based on the IP
-func GetAddress(ip string, userAgent string) *IpAddress {
+func GetAddress(ip string, userAgent string) (*IpAddress, error) {
 	var ipAddress IpAddress
 
 	// Parse userAgent
@@ -37,13 +39,13 @@ func GetAddress(ip string, userAgent string) *IpAddress {
 	if utils.CheckRegex(internalIp, ip) || ip == "127.0.0.1" || ip == "::1" {
 		ipAddress.Ip = ip
 		ipAddress.Addr = "Intranet Address"
-		return &ipAddress
+		return &ipAddress, nil
 	}
 
 	if netIp := net.ParseIP(ip); netIp == nil || netIp.IsLoopback() {
 		ipAddress.Ip = ip
 		ipAddress.Addr = "Unknown Address"
-		return &ipAddress
+		return &ipAddress, nil
 	}
 
 	body, err := curl.DefaultClient().Send(&curl.RequestParam{
@@ -54,16 +56,12 @@ func GetAddress(ip string, userAgent string) *IpAddress {
 		},
 	})
 	if err != nil {
-		ipAddress.Ip = ip
-		ipAddress.Addr = "Unknown Address"
-		return &ipAddress
+		return nil, fmt.Errorf("failed to get ip address info: %w", err)
 	}
 
 	if err := json.Unmarshal([]byte(body), &ipAddress); err != nil {
-		ipAddress.Ip = ip
-		ipAddress.Addr = "Unknown Address"
-		return &ipAddress
+		return nil, fmt.Errorf("failed to unmarshal ip address info: %w", err)
 	}
 
-	return &ipAddress
+	return &ipAddress, nil
 }

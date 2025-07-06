@@ -60,7 +60,10 @@ func OperLogMiddleware(operLogService *service.OperLogService, title string, bus
 
 		operParam, _ := json.Marshal(&param)
 
-		ipaddress := ipaddress.GetAddress(ctx.ClientIP(), ctx.Request.UserAgent())
+		ipInfo, err := ipaddress.GetAddress(ctx.ClientIP(), ctx.Request.UserAgent())
+		if err != nil {
+			ipInfo = &ipaddress.IpAddress{}
+		}
 
 		sysOperLog := dto.SaveOperLogRequest{
 			Title:         title,
@@ -70,8 +73,8 @@ func OperLogMiddleware(operLogService *service.OperLogService, title string, bus
 			OperName:      operName,
 			DeptName:      deptName,
 			OperUrl:       ctx.Request.URL.Path,
-			OperIp:        ipaddress.Ip,
-			OperLocation:  ipaddress.Addr,
+			OperIp:        ipInfo.Ip,
+			OperLocation:  ipInfo.Addr,
 			OperParam:     string(operParam),
 			JsonResult:    "",
 			Status:        constant.NORMAL_STATUS,

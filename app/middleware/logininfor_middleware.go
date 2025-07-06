@@ -43,14 +43,17 @@ func LogininforMiddleware(logininforService *service.LogininforService) gin.Hand
 		// the cached request body needs to be reassigned to ctx.Request.Body.
 		ctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-		ipaddress := ipaddress.GetAddress(ctx.ClientIP(), ctx.Request.UserAgent())
+		ipInfo, err := ipaddress.GetAddress(ctx.ClientIP(), ctx.Request.UserAgent())
+		if err != nil {
+			ipInfo = &ipaddress.IpAddress{}
+		}
 
 		logininfor := dto.SaveLogininforRequest{
 			UserName:      param.Username,
-			Ipaddr:        ipaddress.Ip,
-			LoginLocation: ipaddress.Addr,
-			Browser:       ipaddress.Browser,
-			Os:            ipaddress.Os,
+			Ipaddr:        ipInfo.Ip,
+			LoginLocation: ipInfo.Addr,
+			Browser:       ipInfo.Browser,
+			Os:            ipInfo.Os,
 			Status:        constant.NORMAL_STATUS,
 			LoginTime:     datetime.Datetime{Time: time.Now()},
 		}

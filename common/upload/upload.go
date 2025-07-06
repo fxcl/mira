@@ -2,13 +2,14 @@ package upload
 
 import (
 	"encoding/base64"
-	"errors"
 	"math/rand"
-	"mira/config"
 	"net/textproto"
 	"os"
 	"strings"
 	"time"
+
+	"mira/common/xerrors"
+	"mira/config"
 )
 
 // Upload file
@@ -130,7 +131,7 @@ func (u *Upload) Save() (*Result, error) {
 	var domain string
 
 	if config.Data.Ruoyi.Domain == "" {
-		return nil, errors.New("domain not found, cannot generate access address")
+		return nil, xerrors.ErrUploadDomainNotFound
 	}
 
 	if config.Data.Ruoyi.SSL {
@@ -140,13 +141,13 @@ func (u *Upload) Save() (*Result, error) {
 	}
 
 	if u.File == nil || len(u.File.FileContent) <= 0 {
-		return nil, errors.New("upload file data is incomplete and cannot be saved")
+		return nil, xerrors.ErrUploadFileIncomplete
 	}
 
 	// Get the file suffix and generate a hash file name
 	fileName := strings.Split(u.File.FileName, ".")
 	if len(fileName) != 2 {
-		return nil, errors.New("file missing suffix")
+		return nil, xerrors.ErrUploadFileMissingSuffix
 	}
 
 	// Splice random file name
@@ -190,7 +191,7 @@ func (u *Upload) Save() (*Result, error) {
 // Check file size
 func (u *Upload) checkLimitSize() error {
 	if u.Config.LimitSize > 0 && u.File.FileSize > 0 && u.Config.LimitSize < u.File.FileSize {
-		return errors.New("file size exceeds the limit")
+		return xerrors.ErrUploadFileSizeExceedsLimit
 	}
 
 	return nil
@@ -208,7 +209,7 @@ func (u *Upload) checkLimitType() error {
 		}
 	}
 
-	return errors.New("invalid file format")
+	return xerrors.ErrUploadInvalidFileFormat
 }
 
 // Generate random string

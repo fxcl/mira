@@ -1,6 +1,10 @@
 package captcha
 
-import "github.com/mojocn/base64Captcha"
+import (
+	"mira/common/xerrors"
+
+	"github.com/mojocn/base64Captcha"
+)
 
 type Captcha struct {
 	captcha *base64Captcha.Captcha
@@ -8,7 +12,6 @@ type Captcha struct {
 
 // Initialize captcha
 func NewCaptcha() *Captcha {
-
 	driver := base64Captcha.NewDriverDigit(40, 100, 4, 0.7, 1)
 
 	return &Captcha{
@@ -19,7 +22,6 @@ func NewCaptcha() *Captcha {
 // Generate captcha
 // uuid, base64, answer
 func (c *Captcha) Generate() (string, string) {
-
 	id, b64s, _, err := c.captcha.Generate()
 	if err != nil {
 		return "", ""
@@ -29,6 +31,9 @@ func (c *Captcha) Generate() (string, string) {
 }
 
 // Verify captcha
-func (c *Captcha) Verify(id, answer string) bool {
-	return c.captcha.Verify(id, answer, true)
+func (c *Captcha) Verify(id, answer string) error {
+	if c.captcha.Verify(id, answer, true) {
+		return nil
+	}
+	return xerrors.ErrCaptcha
 }

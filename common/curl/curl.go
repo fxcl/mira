@@ -53,7 +53,7 @@ func (r *Request) Send(requestParam *RequestParam) (string, error) {
 	// Create a new HTTP request
 	request, err = createRequest(requestParam)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Set request header information
@@ -71,7 +71,7 @@ func (r *Request) Send(requestParam *RequestParam) (string, error) {
 	// Send HTTP request
 	result, err := r.Client.Do(request)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to send request: %w", err)
 	}
 
 	defer result.Body.Close()
@@ -79,7 +79,7 @@ func (r *Request) Send(requestParam *RequestParam) (string, error) {
 	// Read the response body content and add it to the buffer
 	var buffer bytes.Buffer
 	if _, err = io.Copy(&buffer, result.Body); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	return buffer.String(), nil
@@ -102,7 +102,7 @@ func getRequest(requestParam *RequestParam) (*http.Request, error) {
 	// Parse URL
 	url, err := url.Parse(requestParam.Url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse url: %w", err)
 	}
 
 	query := url.Query()

@@ -1,6 +1,10 @@
 package controller
 
 import (
+	"strconv"
+	"strings"
+	"time"
+
 	"mira/anima/dal"
 	"mira/anima/datetime"
 	"mira/anima/response"
@@ -13,9 +17,6 @@ import (
 	"mira/common/password"
 	"mira/common/types/constant"
 	"mira/config"
-	"strconv"
-	"strings"
-	"time"
 
 	rediskey "mira/common/types/redis-key"
 
@@ -57,8 +58,8 @@ func (*AuthController) Register(ctx *gin.Context) {
 	}
 
 	if config := (&service.ConfigService{}).GetConfigCacheByConfigKey("sys.account.captchaEnabled"); config.ConfigValue == "true" {
-		if !captcha.NewCaptcha().Verify(param.Uuid, param.Code) {
-			response.NewError().SetMsg("Verification code error").Json(ctx)
+		if err := captcha.NewCaptcha().Verify(param.Uuid, param.Code); err != nil {
+			response.NewError().SetMsg(err.Error()).Json(ctx)
 			return
 		}
 	}
@@ -98,8 +99,8 @@ func (*AuthController) Login(ctx *gin.Context) {
 	}
 
 	if config := (&service.ConfigService{}).GetConfigCacheByConfigKey("sys.account.captchaEnabled"); config.ConfigValue == "true" {
-		if !captcha.NewCaptcha().Verify(param.Uuid, param.Code) {
-			response.NewError().SetMsg("Verification code error").Json(ctx)
+		if err := captcha.NewCaptcha().Verify(param.Uuid, param.Code); err != nil {
+			response.NewError().SetMsg(err.Error()).Json(ctx)
 			return
 		}
 	}
