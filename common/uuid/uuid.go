@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
+// New generates a new V4 UUID.
 func New() (string, error) {
-
 	uuid := make([]byte, 16)
 
 	_, err := rand.Read(uuid)

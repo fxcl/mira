@@ -70,4 +70,8 @@ var (
 	ErrUserSuperAdminDelete  = errors.New("the super administrator cannot be deleted")
 	ErrUserCurrentUserDelete = errors.New("the current user cannot be deleted")
 	ErrUserStatusEmpty       = errors.New("please select a status")
+
+	// General
+	ErrNotImplemented = errors.New("not implemented")
+	ErrInternal       = errors.New("internal server error")
 )

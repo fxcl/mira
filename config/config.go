@@ -84,6 +84,11 @@ type Config struct {
 
 var Data *Config
 
+// GetConfig returns the global configuration object.
+func GetConfig() *Config {
+	return Data
+}
+
 func init() {
 	file, err := os.ReadFile("application.yaml")
 	if err != nil {

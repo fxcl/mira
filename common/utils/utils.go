@@ -77,7 +77,6 @@ func StringToIntSlice(param, char string) ([]int, error) {
 
 		num, err := strconv.Atoi(str)
 		if err != nil {
-			intSlice = append(intSlice, num)
 			return nil, errors.New(str + " conversion failed: " + err.Error())
 		}
 
