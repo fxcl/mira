@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -162,7 +163,11 @@ func (*AuthController) GetInfo(ctx *gin.Context) {
 
 	dept := (&service.DeptService{}).GetDeptByDeptId(user.DeptId)
 
-	roles := (&service.RoleService{}).GetRoleListByUserId(user.UserId)
+	roles, err := (&service.RoleService{}).GetRoleListByUserId(user.UserId)
+	if err != nil {
+		response.NewError().SetMsg(fmt.Sprintf("Failed to get user roles: %v", err)).Json(ctx)
+		return
+	}
 
 	data := dto.AuthUserInfoResponse{
 		UserDetailResponse: user,
@@ -170,7 +175,11 @@ func (*AuthController) GetInfo(ctx *gin.Context) {
 		Roles:              roles,
 	}
 
-	roleKeys := (&service.RoleService{}).GetRoleKeysByUserId(user.UserId)
+	roleKeys, err := (&service.RoleService{}).GetRoleKeysByUserId(user.UserId)
+	if err != nil {
+		response.NewError().SetMsg(fmt.Sprintf("Failed to get user permission identifiers: %v", err)).Json(ctx)
+		return
+	}
 
 	perms := (&service.MenuService{}).GetPermsByUserId(user.UserId)
 

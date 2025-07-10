@@ -1,6 +1,8 @@
 package systemcontroller
 
 import (
+	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 
 	"gitee.com/hanshuangjianke/go-excel/excel"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // RoleController handles role-related operations.
@@ -65,7 +68,11 @@ func (c *RoleController) List(ctx *gin.Context) {
 func (c *RoleController) Detail(ctx *gin.Context) {
 	roleId, _ := strconv.Atoi(ctx.Param("roleId"))
 
-	role := c.RoleService.GetRoleByRoleId(roleId)
+	role, err := c.RoleService.GetRoleByRoleId(roleId)
+	if err != nil {
+		response.NewError().SetMsg(fmt.Sprintf("Failed to get role information: %v", err)).Json(ctx)
+		return
+	}
 
 	response.NewSuccess().SetData("data", role).Json(ctx)
 }
@@ -92,12 +99,22 @@ func (c *RoleController) Create(ctx *gin.Context) {
 		return
 	}
 
-	if role := c.RoleService.GetRoleByRoleName(param.RoleName); role.RoleId > 0 {
+	role, err := c.RoleService.GetRoleByRoleName(param.RoleName)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		response.NewError().SetMsg(fmt.Sprintf("Failed to validate role name: %v", err)).Json(ctx)
+		return
+	}
+	if role.RoleId > 0 {
 		response.NewError().SetMsg("Failed to add role " + param.RoleName + ", role name already exists").Json(ctx)
 		return
 	}
 
-	if role := c.RoleService.GetRoleByRoleKey(param.RoleKey); role.RoleId > 0 {
+	role, err = c.RoleService.GetRoleByRoleKey(param.RoleKey)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		response.NewError().SetMsg(fmt.Sprintf("Failed to validate role permission character: %v", err)).Json(ctx)
+		return
+	}
+	if role.RoleId > 0 {
 		response.NewError().SetMsg("Failed to add role " + param.RoleName + ", permission character already exists").Json(ctx)
 		return
 	}
@@ -149,12 +166,22 @@ func (c *RoleController) Update(ctx *gin.Context) {
 		return
 	}
 
-	if role := c.RoleService.GetRoleByRoleName(param.RoleName); role.RoleId > 0 && role.RoleId != param.RoleId {
+	role, err := c.RoleService.GetRoleByRoleName(param.RoleName)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		response.NewError().SetMsg(fmt.Sprintf("Failed to validate role name: %v", err)).Json(ctx)
+		return
+	}
+	if role.RoleId > 0 && role.RoleId != param.RoleId {
 		response.NewError().SetMsg("Failed to modify role " + param.RoleName + ", role name already exists").Json(ctx)
 		return
 	}
 
-	if role := c.RoleService.GetRoleByRoleKey(param.RoleKey); role.RoleId > 0 && role.RoleId != param.RoleId {
+	role, err = c.RoleService.GetRoleByRoleKey(param.RoleKey)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		response.NewError().SetMsg(fmt.Sprintf("Failed to validate role permission character: %v", err)).Json(ctx)
+		return
+	}
+	if role.RoleId > 0 && role.RoleId != param.RoleId {
 		response.NewError().SetMsg("Failed to modify role " + param.RoleName + ", permission character already exists").Json(ctx)
 		return
 	}
@@ -201,7 +228,11 @@ func (c *RoleController) Remove(ctx *gin.Context) {
 		return
 	}
 
-	roles := c.RoleService.GetRoleListByUserId(security.GetAuthUserId(ctx))
+	roles, err := c.RoleService.GetRoleListByUserId(security.GetAuthUserId(ctx))
+	if err != nil {
+		response.NewError().SetMsg(fmt.Sprintf("Failed to get user role list: %v", err)).Json(ctx)
+		return
+	}
 
 	for _, role := range roles {
 		if err = validator.RemoveRoleValidator(roleIds, role.RoleId, role.RoleName); err != nil {

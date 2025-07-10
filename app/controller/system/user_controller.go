@@ -1,6 +1,7 @@
 package systemcontroller
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -104,7 +105,11 @@ func (c *UserController) Detail(ctx *gin.Context) {
 		user := c.UserService.GetUserByUserId(userId)
 		user.Admin = user.UserId == 1
 		dept := c.DeptService.GetDeptByDeptId(user.DeptId)
-		roles := c.RoleService.GetRoleListByUserId(user.UserId)
+		roles, err := c.RoleService.GetRoleListByUserId(user.UserId)
+		if err != nil {
+			response.NewError().SetMsg(fmt.Sprintf("获取用户角色列表失败: %v", err)).Json(ctx)
+			return
+		}
 
 		resp.SetData("data", dto.AuthUserInfoResponse{
 			UserDetailResponse: user,
@@ -377,7 +382,11 @@ func (c *UserController) AuthRole(ctx *gin.Context) {
 		user := c.UserService.GetUserByUserId(userId)
 		user.Admin = user.UserId == 1
 		dept := c.DeptService.GetDeptByDeptId(user.DeptId)
-		roles := c.RoleService.GetRoleListByUserId(user.UserId)
+		roles, err := c.RoleService.GetRoleListByUserId(user.UserId)
+		if err != nil {
+			response.NewError().SetMsg(fmt.Sprintf("Failed to get user role list: %v", err)).Json(ctx)
+			return
+		}
 		for _, role := range roles {
 			userHasRoleIds = append(userHasRoleIds, role.RoleId)
 		}
@@ -664,7 +673,11 @@ func (c *UserController) GetProfile(ctx *gin.Context) {
 	user := c.UserService.GetUserByUserId(security.GetAuthUserId(ctx))
 	user.Admin = user.UserId == 1
 	dept := c.DeptService.GetDeptByDeptId(user.DeptId)
-	roles := c.RoleService.GetRoleListByUserId(user.UserId)
+	roles, err := c.RoleService.GetRoleListByUserId(user.UserId)
+	if err != nil {
+		response.NewError().SetMsg(fmt.Sprintf("Failed to get user role list: %v", err)).Json(ctx)
+		return
+	}
 
 	data := dto.AuthUserInfoResponse{
 		UserDetailResponse: user,
@@ -673,7 +686,11 @@ func (c *UserController) GetProfile(ctx *gin.Context) {
 	}
 
 	// Get role group
-	roleGroup := c.RoleService.GetRoleNamesByUserId(user.UserId)
+	roleGroup, err := c.RoleService.GetRoleNamesByUserId(user.UserId)
+	if err != nil {
+		response.NewError().SetMsg(fmt.Sprintf("Failed to get user role names: %v", err)).Json(ctx)
+		return
+	}
 
 	// Get post group
 	postGroup := c.PostService.GetPostNamesByUserId(user.UserId)
