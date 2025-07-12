@@ -1,10 +1,9 @@
 package middleware
 
 import (
+	"net/http"
 	"time"
 
-	"mira/anima/response"
-	"mira/app/security"
 	"mira/app/token"
 	"mira/common/types/constant"
 
@@ -14,24 +13,30 @@ import (
 // AuthMiddleware for authentication
 func AuthMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		authUser := security.GetAuthUser(ctx)
-		if authUser == nil {
-			response.NewError().SetCode(401).SetMsg("Not logged in").Json(ctx)
-			ctx.Abort()
+		tokenKey, err := token.GetUserTokenKey(ctx)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": http.StatusUnauthorized, "msg": "Not logged in"})
+			return
+		}
+
+		authUser, err := token.GetAuthUser(ctx.Request.Context(), tokenKey)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": http.StatusUnauthorized, "msg": "Not logged in"})
 			return
 		}
 
 		// If the token is about to expire (less than 20 minutes), refresh it
 		if authUser.ExpireTime.Time.Before(time.Now().Add(time.Minute * 20)) {
-			tokenKey, err := token.GetUserTokenKey(ctx)
-			if err == nil {
-				token.RefreshToken(ctx.Request.Context(), tokenKey, authUser)
-			}
+			token.RefreshToken(ctx.Request.Context(), tokenKey, authUser)
+		}
+
+		if authUser.Status == constant.EXCEPTION_STATUS {
+			ctx.AbortWithStatusJSON(601, gin.H{"code": 601, "msg": "User is disabled"})
+			return
 		}
 
 		if authUser.Status != constant.NORMAL_STATUS {
-			response.NewError().SetCode(601).SetMsg("User is disabled").Json(ctx)
-			ctx.Abort()
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": http.StatusUnauthorized, "msg": "User status is abnormal"})
 			return
 		}
 

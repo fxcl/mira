@@ -12,37 +12,10 @@ import (
 	"mira/app/token"
 	"mira/common/types/constant"
 
-	"mira/anima/dal"
-	"mira/config"
-
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redismock/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
-
-var redisMock redismock.ClientMock
-
-func setup() {
-	db, mock := redismock.NewClientMock()
-	redisMock = mock
-	dal.Redis = db
-	config.Data = &config.Config{
-		Token: struct {
-			Header     string `yaml:"header"`
-			Secret     string `yaml:"secret"`
-			ExpireTime int    `yaml:"expireTime"`
-		}{
-			Header:     "Authorization",
-			Secret:     "your-secret-key",
-			ExpireTime: 30,
-		},
-	}
-}
-
-func teardown() {
-	dal.Redis.Close()
-}
 
 // MockOperLogService is a mock type for the OperLogService
 type MockOperLogService struct {
@@ -70,8 +43,6 @@ func (m *MockOperLogService) CreateSysOperLog(param dto.SaveOperLogRequest) erro
 }
 
 func TestOperLogMiddleware(t *testing.T) {
-	setup()
-	defer teardown()
 	// Set Gin to test mode
 	gin.SetMode(gin.TestMode)
 
