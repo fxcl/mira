@@ -89,14 +89,11 @@ func GetConfig() *Config {
 	return Data
 }
 
-func init() {
-	file, err := os.ReadFile("application.yaml")
+// LoadConfig loads configuration from the given path.
+func LoadConfig(path string) error {
+	file, err := os.ReadFile(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
-
-	err = yaml.Unmarshal(file, &Data)
-	if err != nil {
-		panic(err)
-	}
+	return yaml.Unmarshal(file, &Data)
 }

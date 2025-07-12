@@ -120,12 +120,14 @@ func getRequest(requestParam *RequestParam) (*http.Request, error) {
 // post request
 func postRequest(requestParam *RequestParam) (*http.Request, error) {
 	var body io.Reader
+	var contentType string
 
 	// Pass parameters in Json format
 	if requestParam.Json != nil {
 		// Serialize json to a byte array
 		jsonData, _ := json.Marshal(requestParam.Json)
 		body = bytes.NewBuffer(jsonData)
+		contentType = "application/json"
 	}
 
 	// Pass parameters in Form format
@@ -136,6 +138,7 @@ func postRequest(requestParam *RequestParam) (*http.Request, error) {
 			formData.Add(key, fmt.Sprint(value))
 		}
 		body = strings.NewReader(formData.Encode())
+		contentType = "application/x-www-form-urlencoded"
 	}
 
 	// Pass parameters in Body
@@ -143,5 +146,14 @@ func postRequest(requestParam *RequestParam) (*http.Request, error) {
 		body = strings.NewReader(requestParam.Body)
 	}
 
-	return http.NewRequest("POST", requestParam.Url, body)
+	req, err := http.NewRequest("POST", requestParam.Url, body)
+	if err != nil {
+		return nil, err
+	}
+
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+
+	return req, nil
 }

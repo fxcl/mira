@@ -19,7 +19,11 @@ func NewSecurity(userService *service.UserService) *Security {
 
 // Get user id
 func GetAuthUserId(ctx *gin.Context) int {
-	authUser, err := token.GetAuthUser(ctx)
+	tokenKey, err := token.GetUserTokenKey(ctx)
+	if err != nil {
+		return 0
+	}
+	authUser, err := token.GetAuthUser(ctx.Request.Context(), tokenKey)
 	if err != nil {
 		return 0
 	}
@@ -28,7 +32,11 @@ func GetAuthUserId(ctx *gin.Context) int {
 
 // Get department id
 func GetAuthDeptId(ctx *gin.Context) int {
-	authUser, err := token.GetAuthUser(ctx)
+	tokenKey, err := token.GetUserTokenKey(ctx)
+	if err != nil {
+		return 0
+	}
+	authUser, err := token.GetAuthUser(ctx.Request.Context(), tokenKey)
 	if err != nil {
 		return 0
 	}
@@ -37,7 +45,11 @@ func GetAuthDeptId(ctx *gin.Context) int {
 
 // Get user account
 func GetAuthUserName(ctx *gin.Context) string {
-	authUser, err := token.GetAuthUser(ctx)
+	tokenKey, err := token.GetUserTokenKey(ctx)
+	if err != nil {
+		return ""
+	}
+	authUser, err := token.GetAuthUser(ctx.Request.Context(), tokenKey)
 	if err != nil {
 		return ""
 	}
@@ -46,7 +58,11 @@ func GetAuthUserName(ctx *gin.Context) string {
 
 // Get user
 func GetAuthUser(ctx *gin.Context) *token.UserTokenResponse {
-	authUser, err := token.GetAuthUser(ctx)
+	tokenKey, err := token.GetUserTokenKey(ctx)
+	if err != nil {
+		return nil
+	}
+	authUser, err := token.GetAuthUser(ctx.Request.Context(), tokenKey)
 	if err != nil {
 		return nil
 	}

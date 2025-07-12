@@ -237,7 +237,7 @@ func (s *DictTypeService) GetDcitTypeByDictTypeWithErr(dictType string) (dto.Dic
 // Returns:
 //   - error: Any error that occurred during refresh, or nil on success
 func (s *DictTypeService) RefreshCache() error {
-	err := dal.Redis.Del(context.Background(), rediskey.SysDictKey).Err()
+	err := dal.Redis.Del(context.Background(), rediskey.SysDictKey()).Err()
 	if err != nil {
 		return errors.Wrap(err, "failed to refresh dictionary cache")
 	}
@@ -498,30 +498,25 @@ func (s *DictDataService) GetDictDataCacheByDictTypeWithErr(dictType string) ([]
 		return dictDatas, errors.New("empty dictionary type provided")
 	}
 
-	// If the cache is not empty, do not read from the database to reduce database pressure
-	if dictDatasCache, err := dal.Redis.HGet(context.Background(), rediskey.SysDictKey, dictType).Result(); err == nil && dictDatasCache != "" {
-		if err := json.Unmarshal([]byte(dictDatasCache), &dictDatas); err == nil {
+	// Try to get from cache first
+	cache, err := dal.Redis.HGet(context.Background(), rediskey.SysDictKey(), dictType).Result()
+	if err == nil && cache != "" {
+		err = json.Unmarshal([]byte(cache), &dictDatas)
+		if err == nil {
 			return dictDatas, nil
-		} else {
-			return nil, errors.Wrap(err, "failed to unmarshal cached dictionary data")
 		}
 	}
 
-	// Read the configuration from the database and record it to the cache
-	dictDatas, err := s.GetDictDataByDictTypeWithErr(dictType)
+	// Get from DB if cache fails
+	dictDatas, err = s.GetDictDataByDictTypeWithErr(dictType)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(dictDatas) > 0 {
-		dictDadasBytes, err := json.Marshal(&dictDatas)
-		if err != nil {
-			return dictDatas, errors.Wrap(err, "failed to marshal dictionary data for caching")
-		}
-
-		if err := dal.Redis.HSet(context.Background(), rediskey.SysDictKey, dictType, string(dictDadasBytes)).Err(); err != nil {
-			return dictDatas, errors.Wrap(err, "failed to cache dictionary data")
-		}
+	// Set cache
+	cacheBytes, err := json.Marshal(dictDatas)
+	if err == nil {
+		dal.Redis.HSet(context.Background(), rediskey.SysDictKey(), dictType, string(cacheBytes))
 	}
 
 	return dictDatas, nil

@@ -28,6 +28,11 @@ type PostService struct{}
 // Ensure PostService implements PostServiceInterface
 var _ PostServiceInterface = (*PostService)(nil)
 
+// NewPostService creates a new PostService
+func NewPostService() *PostService {
+	return &PostService{}
+}
+
 // CreatePost creates a new post
 func (s *PostService) CreatePost(param dto.SavePost) error {
 	return s.CreatePostWithErr(param)

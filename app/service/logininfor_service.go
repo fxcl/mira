@@ -106,7 +106,7 @@ func (s *LogininforService) UnlockWithErr(userName string) error {
 		return errors.New("username cannot be empty")
 	}
 
-	_, err := dal.Redis.Del(context.Background(), rediskey.LoginPasswordErrorKey+userName).Result()
+	_, err := dal.Redis.Del(context.Background(), rediskey.LoginPasswordErrorKey()+userName).Result()
 	if err != nil {
 		return errors.Wrap(err, "failed to delete login error cache for user")
 	}

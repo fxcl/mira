@@ -7,30 +7,26 @@ import (
 
 // CreatePostValidator validates the request to create a post.
 func CreatePostValidator(param dto.CreatePostRequest) error {
-	if param.PostCode == "" {
+	switch {
+	case param.PostCode == "":
 		return xerrors.ErrPostCodeEmpty
-	}
-
-	if param.PostName == "" {
+	case param.PostName == "":
 		return xerrors.ErrPostNameEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // UpdatePostValidator validates the request to update a post.
 func UpdatePostValidator(param dto.UpdatePostRequest) error {
-	if param.PostId <= 0 {
+	switch {
+	case param.PostId <= 0:
 		return xerrors.ErrParam
-	}
-
-	if param.PostCode == "" {
+	case param.PostCode == "":
 		return xerrors.ErrPostCodeEmpty
-	}
-
-	if param.PostName == "" {
+	case param.PostName == "":
 		return xerrors.ErrPostNameEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }

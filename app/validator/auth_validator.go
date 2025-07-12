@@ -7,38 +7,30 @@ import (
 
 // RegisterValidator validates the registration request.
 func RegisterValidator(param dto.RegisterRequest) error {
-	if param.Username == "" {
+	switch {
+	case param.Username == "":
 		return xerrors.ErrUsernameEmpty
-	}
-
-	if param.Password == "" {
+	case param.Password == "":
 		return xerrors.ErrPasswordEmpty
-	}
-
-	if param.ConfirmPassword != param.Password {
+	case param.ConfirmPassword != param.Password:
 		return xerrors.ErrPasswordsNotMatch
-	}
-
-	if len(param.Username) < 2 || len(param.Username) > 20 {
+	case len(param.Username) < 2 || len(param.Username) > 20:
 		return xerrors.ErrUsernameLength
-	}
-
-	if len(param.Password) < 5 || len(param.Password) > 20 {
+	case len(param.Password) < 5 || len(param.Password) > 20:
 		return xerrors.ErrPasswordLength
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // LoginValidator validates the login request.
 func LoginValidator(param dto.LoginRequest) error {
-	if param.Username == "" {
+	switch {
+	case param.Username == "":
 		return xerrors.ErrUsernameEmpty
-	}
-
-	if param.Password == "" {
+	case param.Password == "":
 		return xerrors.ErrPasswordEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }

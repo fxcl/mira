@@ -6,7 +6,6 @@ import (
 	"net"
 
 	"mira/common/curl"
-	"mira/common/utils"
 
 	"github.com/mileusna/useragent"
 )
@@ -25,8 +24,16 @@ type IpAddress struct {
 	Os         string `json:"os"`
 }
 
+type Client struct {
+	Curl *curl.Request
+}
+
+func NewClient(c *curl.Request) *Client {
+	return &Client{Curl: c}
+}
+
 // GetAddress gets the address based on the IP
-func GetAddress(ip string, userAgent string) (*IpAddress, error) {
+func (c *Client) GetAddress(ip string, userAgent string) (*IpAddress, error) {
 	var ipAddress IpAddress
 
 	// Parse userAgent
@@ -34,21 +41,20 @@ func GetAddress(ip string, userAgent string) (*IpAddress, error) {
 	ipAddress.Browser = userAgentData.Name
 	ipAddress.Os = userAgentData.OS
 
-	internalIp := "(((\\d)|([1-9]\\d)|(1\\d{2})|(2[0-4]\\d)|(25[0-5]))\\.){3}((\\d)|([1-9]\\d)|(1\\d{2})|(2[0-4]\\d)|(25[0-5]))$"
-
-	if utils.CheckRegex(internalIp, ip) || ip == "127.0.0.1" || ip == "::1" {
-		ipAddress.Ip = ip
-		ipAddress.Addr = "Intranet Address"
-		return &ipAddress, nil
-	}
-
-	if netIp := net.ParseIP(ip); netIp == nil || netIp.IsLoopback() {
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
 		ipAddress.Ip = ip
 		ipAddress.Addr = "Unknown Address"
 		return &ipAddress, nil
 	}
 
-	body, err := curl.DefaultClient().Send(&curl.RequestParam{
+	if parsedIP.IsLoopback() || parsedIP.IsPrivate() {
+		ipAddress.Ip = ip
+		ipAddress.Addr = "Intranet Address"
+		return &ipAddress, nil
+	}
+
+	body, err := c.Curl.Send(&curl.RequestParam{
 		Url: "http://whois.pconline.com.cn/ipJson.jsp",
 		Query: map[string]interface{}{
 			"ip":   ip,
@@ -64,4 +70,9 @@ func GetAddress(ip string, userAgent string) (*IpAddress, error) {
 	}
 
 	return &ipAddress, nil
+}
+
+// GetAddress gets the address based on the IP
+func GetAddress(ip string, userAgent string) (*IpAddress, error) {
+	return NewClient(curl.DefaultClient()).GetAddress(ip, userAgent)
 }

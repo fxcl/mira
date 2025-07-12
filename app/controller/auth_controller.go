@@ -23,6 +23,7 @@ import (
 	rediskey "mira/common/types/redis-key"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 type AuthController struct{}
@@ -119,7 +120,7 @@ func (*AuthController) Login(ctx *gin.Context) {
 	}
 
 	// If the number of login password errors exceeds the limit, the account will be locked for 10 minutes
-	count, _ := dal.Redis.Get(ctx.Request.Context(), rediskey.LoginPasswordErrorKey+param.Username).Int()
+	count, _ := dal.Redis.Get(ctx.Request.Context(), rediskey.LoginPasswordErrorKey()+param.Username).Int()
 	if count >= config.Data.User.Password.MaxRetryCount {
 		response.NewError().SetMsg("The number of password errors has exceeded the limit, please try again in " + strconv.Itoa(config.Data.User.Password.LockTime) + " minutes").Json(ctx)
 		return
@@ -128,7 +129,7 @@ func (*AuthController) Login(ctx *gin.Context) {
 	if err := password.Verify(user.Password, param.Password); err != nil {
 		if err == xerrors.ErrMismatchedPassword {
 			// The number of password errors is increased by 1, and the cache expiration time is set to the lock time
-			dal.Redis.Set(ctx.Request.Context(), rediskey.LoginPasswordErrorKey+param.Username, count+1, time.Minute*time.Duration(config.Data.User.Password.LockTime))
+			dal.Redis.Set(ctx.Request.Context(), rediskey.LoginPasswordErrorKey()+param.Username, count+1, time.Minute*time.Duration(config.Data.User.Password.LockTime))
 			response.NewError().SetMsg("Password error").Json(ctx)
 			return
 		}
@@ -137,9 +138,11 @@ func (*AuthController) Login(ctx *gin.Context) {
 	}
 
 	// Login successful, delete the number of errors
-	dal.Redis.Del(ctx.Request.Context(), rediskey.LoginPasswordErrorKey+param.Username)
+	dal.Redis.Del(ctx.Request.Context(), rediskey.LoginPasswordErrorKey()+param.Username)
 
-	token, err := token.GetClaims().GenerateToken(user)
+	claims := token.GetClaims()
+	claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Minute * time.Duration(config.Data.Token.ExpireTime)))
+	token, err := token.GenerateToken(claims, user)
 	if err != nil {
 		response.NewError().SetMsg(err.Error()).Json(ctx)
 		return
@@ -199,7 +202,12 @@ func (*AuthController) GetRouters(ctx *gin.Context) {
 
 // Logout
 func (*AuthController) Logout(ctx *gin.Context) {
-	token.DeleteToken(ctx)
+	tokenKey, err := token.GetUserTokenKey(ctx)
+	if err != nil {
+		response.NewError().SetMsg(err.Error()).Json(ctx)
+		return
+	}
+	token.DeleteToken(ctx.Request.Context(), tokenKey)
 
 	response.NewSuccess().Json(ctx)
 }

@@ -7,38 +7,30 @@ import (
 
 // CreateConfigValidator validates the request to create a configuration.
 func CreateConfigValidator(param dto.CreateConfigRequest) error {
-	if param.ConfigName == "" {
+	switch {
+	case param.ConfigName == "":
 		return xerrors.ErrConfigNameEmpty
-	}
-
-	if param.ConfigKey == "" {
+	case param.ConfigKey == "":
 		return xerrors.ErrConfigKeyEmpty
-	}
-
-	if param.ConfigValue == "" {
+	case param.ConfigValue == "":
 		return xerrors.ErrConfigValueEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // UpdateConfigValidator validates the request to update a configuration.
 func UpdateConfigValidator(param dto.UpdateConfigRequest) error {
-	if param.ConfigId <= 0 {
+	switch {
+	case param.ConfigId <= 0:
 		return xerrors.ErrParam
-	}
-
-	if param.ConfigName == "" {
+	case param.ConfigName == "":
 		return xerrors.ErrConfigNameEmpty
-	}
-
-	if param.ConfigKey == "" {
+	case param.ConfigKey == "":
 		return xerrors.ErrConfigKeyEmpty
-	}
-
-	if param.ConfigValue == "" {
+	case param.ConfigValue == "":
 		return xerrors.ErrConfigValueEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }

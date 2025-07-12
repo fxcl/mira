@@ -1,10 +1,11 @@
 package service
 
 import (
-	"github.com/pkg/errors"
 	"mira/anima/dal"
 	"mira/app/dto"
 	"mira/app/model"
+
+	"github.com/pkg/errors"
 )
 
 // OperLogServiceInterface defines operations for operation log management
@@ -19,6 +20,11 @@ type OperLogService struct{}
 
 // Ensure OperLogService implements OperLogServiceInterface
 var _ OperLogServiceInterface = (*OperLogService)(nil)
+
+// NewOperLogService creates a new OperLogService
+func NewOperLogService() *OperLogService {
+	return &OperLogService{}
+}
 
 // DeleteOperLog deletes operation logs by IDs or all logs if no IDs are provided
 func (s *OperLogService) DeleteOperLog(operIds []int) error {
@@ -57,6 +63,12 @@ func (s *OperLogService) GetOperLogListWithErr(param dto.OperLogListRequest, isP
 	var count int64
 	operLogs := make([]dto.OperLogListResponse, 0)
 
+	if param.OrderByColumn == "" {
+		param.OrderByColumn = "oper_id"
+	}
+	if param.OrderRule == "" {
+		param.OrderRule = "desc"
+	}
 	query := dal.Gorm.Model(model.SysOperLog{}).Order(param.OrderByColumn + " " + param.OrderRule)
 
 	if param.OperIp != "" {

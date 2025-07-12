@@ -1,11 +1,12 @@
 package middleware
 
 import (
+	"time"
+
 	"mira/anima/response"
 	"mira/app/security"
 	"mira/app/token"
 	"mira/common/types/constant"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,7 +23,10 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		// If the token is about to expire (less than 20 minutes), refresh it
 		if authUser.ExpireTime.Time.Before(time.Now().Add(time.Minute * 20)) {
-			token.RefreshToken(ctx, authUser.UserTokenResponse)
+			tokenKey, err := token.GetUserTokenKey(ctx)
+			if err == nil {
+				token.RefreshToken(ctx.Request.Context(), tokenKey, authUser)
+			}
 		}
 
 		if authUser.Status != constant.NORMAL_STATUS {

@@ -9,136 +9,112 @@ import (
 
 // UpdateProfileValidator validates the request to update a user's profile.
 func UpdateProfileValidator(param dto.UpdateProfileRequest) error {
-	if param.NickName == "" {
+	switch {
+	case param.NickName == "":
 		return xerrors.ErrUserNicknameEmpty
-	}
-
-	if !utils.CheckRegex(regexp.EMAIL, param.Email) {
+	case param.Email != "" && !utils.CheckRegex(regexp.EMAIL, param.Email):
 		return xerrors.ErrUserEmailFormat
-	}
-
-	if !utils.CheckRegex(regexp.PHONE, param.Phonenumber) {
+	case param.Phonenumber != "" && !utils.CheckRegex(regexp.PHONE, param.Phonenumber):
 		return xerrors.ErrUserPhoneFormat
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // UserProfileUpdatePwdValidator validates the request to update a user's password.
 func UserProfileUpdatePwdValidator(param dto.UserProfileUpdatePwdRequest) error {
-	if param.OldPassword == "" {
+	switch {
+	case param.OldPassword == "":
 		return xerrors.ErrUserOldPasswordEmpty
-	}
-
-	if param.NewPassword == "" {
+	case param.NewPassword == "":
 		return xerrors.ErrUserNewPasswordEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // CreateUserValidator validates the request to create a user.
 func CreateUserValidator(param dto.CreateUserRequest) error {
-	if param.NickName == "" {
+	switch {
+	case param.NickName == "":
 		return xerrors.ErrUserNicknameEmpty
-	}
-
-	if param.UserName == "" {
+	case param.UserName == "":
 		return xerrors.ErrUserNameEmpty
-	}
-
-	if param.Password == "" {
+	case param.Password == "":
 		return xerrors.ErrUserPasswordEmpty
-	}
-
-	if param.Phonenumber != "" && !utils.CheckRegex(regexp.PHONE, param.Phonenumber) {
+	case param.Phonenumber != "" && !utils.CheckRegex(regexp.PHONE, param.Phonenumber):
 		return xerrors.ErrUserPhoneFormat
-	}
-
-	if param.Email != "" && !utils.CheckRegex(regexp.EMAIL, param.Email) {
+	case param.Email != "" && !utils.CheckRegex(regexp.EMAIL, param.Email):
 		return xerrors.ErrUserEmailFormat
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // UpdateUserValidator validates the request to update a user.
 func UpdateUserValidator(param dto.UpdateUserRequest) error {
-	if param.UserId <= 0 {
+	switch {
+	case param.UserId <= 0:
 		return xerrors.ErrParam
-	}
-
-	if param.NickName == "" {
+	case param.NickName == "":
 		return xerrors.ErrUserNicknameEmpty
-	}
-
-	if param.Phonenumber != "" && !utils.CheckRegex(regexp.PHONE, param.Phonenumber) {
+	case param.Phonenumber != "" && !utils.CheckRegex(regexp.PHONE, param.Phonenumber):
 		return xerrors.ErrUserPhoneFormat
-	}
-
-	if param.Email != "" && !utils.CheckRegex(regexp.EMAIL, param.Email) {
+	case param.Email != "" && !utils.CheckRegex(regexp.EMAIL, param.Email):
 		return xerrors.ErrUserEmailFormat
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // RemoveUserValidator validates the request to remove a user.
 func RemoveUserValidator(userIds []int, authUserId int) error {
-	if utils.Contains(userIds, 1) {
+	switch {
+	case utils.Contains(userIds, 1):
 		return xerrors.ErrUserSuperAdminDelete
-	}
-
-	if utils.Contains(userIds, authUserId) {
+	case utils.Contains(userIds, authUserId):
 		return xerrors.ErrUserCurrentUserDelete
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // ChangeUserStatusValidator validates the request to change the user status.
 func ChangeUserStatusValidator(param dto.UpdateUserRequest) error {
-	if param.UserId <= 0 {
+	switch {
+	case param.UserId <= 0:
 		return xerrors.ErrParam
-	}
-
-	if param.Status == "" {
+	case param.Status == "":
 		return xerrors.ErrUserStatusEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // ResetUserPwdValidator validates the request to reset a user's password.
 func ResetUserPwdValidator(param dto.UpdateUserRequest) error {
-	if param.UserId <= 0 {
+	switch {
+	case param.UserId <= 0:
 		return xerrors.ErrParam
-	}
-
-	if param.Password == "" {
+	case param.Password == "":
 		return xerrors.ErrUserPasswordEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // ImportUserValidator validates the request to import a user.
 func ImportUserValidator(param dto.CreateUserRequest) error {
-	if param.NickName == "" {
+	switch {
+	case param.NickName == "":
 		return xerrors.ErrUserNicknameEmpty
-	}
-
-	if param.UserName == "" {
+	case param.UserName == "":
 		return xerrors.ErrUserNameEmpty
-	}
-
-	if param.Phonenumber != "" && !utils.CheckRegex(regexp.PHONE, param.Phonenumber) {
+	case param.Phonenumber != "" && !utils.CheckRegex(regexp.PHONE, param.Phonenumber):
 		return xerrors.ErrUserPhoneFormat
-	}
-
-	if param.Email != "" && !utils.CheckRegex(regexp.EMAIL, param.Email) {
+	case param.Email != "" && !utils.CheckRegex(regexp.EMAIL, param.Email):
 		return xerrors.ErrUserEmailFormat
+	default:
+		return nil
 	}
-
-	return nil
 }

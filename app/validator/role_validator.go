@@ -10,56 +10,50 @@ import (
 
 // CreateRoleValidator validates the request to create a role.
 func CreateRoleValidator(param dto.CreateRoleRequest) error {
-	if param.RoleName == "" {
+	switch {
+	case param.RoleName == "":
 		return xerrors.ErrRoleNameEmpty
-	}
-
-	if param.RoleKey == "" {
+	case param.RoleKey == "":
 		return xerrors.ErrRoleKeyEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // UpdateRoleValidator validates the request to update a role.
 func UpdateRoleValidator(param dto.UpdateRoleRequest) error {
-	if param.RoleId <= 0 {
+	switch {
+	case param.RoleId <= 0:
 		return xerrors.ErrParam
-	}
-
-	if param.RoleName == "" {
+	case param.RoleName == "":
 		return xerrors.ErrRoleNameEmpty
-	}
-
-	if param.RoleKey == "" {
+	case param.RoleKey == "":
 		return xerrors.ErrRoleKeyEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // RemoveRoleValidator validates the request to remove a role.
 func RemoveRoleValidator(roleIds []int, roleId int, roleName string) error {
-	if utils.Contains(roleIds, 1) {
+	switch {
+	case utils.Contains(roleIds, 1):
 		return xerrors.ErrRoleSuperAdminDelete
-	}
-
-	if utils.Contains(roleIds, roleId) {
+	case utils.Contains(roleIds, roleId):
 		return errors.New("the " + roleName + " role cannot be deleted")
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // ChangeRoleStatusValidator validates the request to change the role status.
 func ChangeRoleStatusValidator(param dto.UpdateRoleRequest) error {
-	if param.RoleId <= 0 {
+	switch {
+	case param.RoleId <= 0:
 		return xerrors.ErrParam
-	}
-
-	if param.Status == "" {
+	case param.Status == "":
 		return xerrors.ErrRoleStatusEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }

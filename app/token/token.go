@@ -48,15 +48,15 @@ func GetClaims() *SysUserClaim {
 }
 
 // GenerateToken generates a token.
-func (a *SysUserClaim) GenerateToken(user dto.UserTokenResponse) (string, error) {
-	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, a).SignedString([]byte(config.Data.Token.Secret))
+func GenerateToken(claims *SysUserClaim, user dto.UserTokenResponse) (string, error) {
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(config.Data.Token.Secret))
 	if err != nil {
 		return "", err
 	}
 
-	err = dal.Redis.Set(context.Background(), rediskey.UserTokenKey+a.Uuid, &UserTokenResponse{
+	err = dal.Redis.Set(context.Background(), rediskey.UserTokenKey()+claims.Uuid, &UserTokenResponse{
 		UserTokenResponse: user,
-		ExpireTime:        datetime.Datetime{Time: time.Now().Add(time.Minute * time.Duration(config.Data.Token.ExpireTime))},
+		ExpireTime:        datetime.Datetime{Time: claims.ExpiresAt.Time},
 	}, time.Minute*time.Duration(config.Data.Token.ExpireTime)).Err()
 	if err != nil {
 		return "", err
@@ -66,46 +66,26 @@ func (a *SysUserClaim) GenerateToken(user dto.UserTokenResponse) (string, error)
 }
 
 // RefreshToken refreshes the token.
-func RefreshToken(ctx *gin.Context, user dto.UserTokenResponse) {
-	tokenKey, err := getUserTokenKey(ctx)
-	if err != nil {
-		return
-	}
-
-	dal.Redis.Set(ctx.Request.Context(), tokenKey, &UserTokenResponse{
-		UserTokenResponse: user,
-		ExpireTime:        datetime.Datetime{Time: time.Now().Add(time.Minute * time.Duration(config.Data.Token.ExpireTime))},
-	}, time.Minute*time.Duration(config.Data.Token.ExpireTime))
+func RefreshToken(ctx context.Context, tokenKey string, user *UserTokenResponse) error {
+	return dal.Redis.Set(ctx, tokenKey, user, time.Minute*time.Duration(config.Data.Token.ExpireTime)).Err()
 }
 
 // GetAuthUser parses the token.
-func GetAuthUser(ctx *gin.Context) (*UserTokenResponse, error) {
-	tokenKey, err := getUserTokenKey(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+func GetAuthUser(ctx context.Context, tokenKey string) (*UserTokenResponse, error) {
 	var user UserTokenResponse
-
-	if err = dal.Redis.Get(ctx.Request.Context(), tokenKey).Scan(&user); err != nil {
+	if err := dal.Redis.Get(ctx, tokenKey).Scan(&user); err != nil {
 		return nil, err
 	}
-
 	return &user, nil
 }
 
 // DeleteToken deletes the token.
-func DeleteToken(ctx *gin.Context) error {
-	tokenKey, err := getUserTokenKey(ctx)
-	if err != nil {
-		return err
-	}
-
-	return dal.Redis.Del(ctx.Request.Context(), tokenKey).Err()
+func DeleteToken(ctx context.Context, tokenKey string) error {
+	return dal.Redis.Del(ctx, tokenKey).Err()
 }
 
-// getUserTokenKey gets the redis key for the authorized user.
-func getUserTokenKey(ctx *gin.Context) (string, error) {
+// GetUserTokenKey gets the redis key for the authorized user.
+func GetUserTokenKey(ctx *gin.Context) (string, error) {
 	authorization := ctx.GetHeader(config.Data.Token.Header)
 	if authorization == "" {
 		return "", ErrPleaseLoginFirst
@@ -133,7 +113,7 @@ func getUserTokenKey(ctx *gin.Context) (string, error) {
 	}
 
 	if claims, ok := token.Claims.(*SysUserClaim); ok && token.Valid {
-		return rediskey.UserTokenKey + claims.Uuid, nil
+		return rediskey.UserTokenKey() + claims.Uuid, nil
 	}
 
 	return "", ErrTokenValidationFailed

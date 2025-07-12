@@ -47,6 +47,11 @@ type MenuServiceInterface interface {
 // MenuService implements the menu management interface
 type MenuService struct{}
 
+// NewMenuService creates a new MenuService
+func NewMenuService() *MenuService {
+	return &MenuService{}
+}
+
 // Ensure MenuService implements MenuServiceInterface
 var _ MenuServiceInterface = (*MenuService)(nil)
 
@@ -527,11 +532,10 @@ func (s *MenuService) BuildRouterMenusWithErr(menus []dto.MenuListTreeResponse) 
 
 // Get route name
 func (s *MenuService) GetRouteName(menu dto.MenuListTreeResponse) string {
-	if s.IsMenuFrame(menu) {
-		return ""
+	if menu.RouteName != "" {
+		return menu.RouteName
 	}
-
-	return s.GetRouteNameOrDefault(menu.RouteName, menu.Path)
+	return menu.MenuName
 }
 
 // Get the route name, if the route name is not configured, take the route address

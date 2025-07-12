@@ -7,60 +7,52 @@ import (
 
 // CreateDictTypeValidator validates the request to create a dictionary type.
 func CreateDictTypeValidator(param dto.CreateDictTypeRequest) error {
-	if param.DictName == "" {
+	switch {
+	case param.DictName == "":
 		return xerrors.ErrDictNameEmpty
-	}
-
-	if param.DictType == "" {
+	case param.DictType == "":
 		return xerrors.ErrDictTypeEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // UpdateDictTypeValidator validates the request to update a dictionary type.
 func UpdateDictTypeValidator(param dto.UpdateDictTypeRequest) error {
-	if param.DictId <= 0 {
+	switch {
+	case param.DictId <= 0:
 		return xerrors.ErrParam
-	}
-
-	if param.DictName == "" {
+	case param.DictName == "":
 		return xerrors.ErrDictNameEmpty
-	}
-
-	if param.DictType == "" {
+	case param.DictType == "":
 		return xerrors.ErrDictTypeEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // CreateDictDataValidator validates the request to create dictionary data.
 func CreateDictDataValidator(param dto.CreateDictDataRequest) error {
-	if param.DictLabel == "" {
+	switch {
+	case param.DictLabel == "":
 		return xerrors.ErrDictLabelEmpty
-	}
-
-	if param.DictValue == "" {
+	case param.DictValue == "":
 		return xerrors.ErrDictValueEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // UpdateDictDataValidator validates the request to update dictionary data.
 func UpdateDictDataValidator(param dto.UpdateDictDataRequest) error {
-	if param.DictCode <= 0 {
+	switch {
+	case param.DictCode <= 0:
 		return xerrors.ErrParam
-	}
-
-	if param.DictLabel == "" {
+	case param.DictLabel == "":
 		return xerrors.ErrDictLabelEmpty
-	}
-
-	if param.DictValue == "" {
+	case param.DictValue == "":
 		return xerrors.ErrDictValueEmpty
+	default:
+		return nil
 	}
-
-	return nil
 }

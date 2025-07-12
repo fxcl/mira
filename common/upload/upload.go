@@ -1,7 +1,6 @@
 package upload
 
 import (
-	"encoding/base64"
 	"math/rand"
 	"net/textproto"
 	"os"
@@ -16,6 +15,7 @@ import (
 type Upload struct {
 	Config *Config
 	File   *File
+	rand   *rand.Rand
 }
 
 var (
@@ -73,6 +73,7 @@ func New(options ...UploadOption) *Upload {
 
 	return &Upload{
 		Config: config,
+		rand:   rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -214,9 +215,6 @@ func (u *Upload) checkLimitType() error {
 
 // Generate random string
 func (u *Upload) generateRandomName() string {
-	// Create a new random number generator instance
-	r := rand.New(rand.NewSource(int64(len(base64.StdEncoding.EncodeToString([]byte(u.File.FileName))))))
-
 	// Define the possible character set, including letters and numbers
 	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
@@ -224,7 +222,7 @@ func (u *Upload) generateRandomName() string {
 	var randomName string
 	for i := 0; i < 64; i++ {
 		// Randomly select a character from the character set
-		randomChar := chars[r.Intn(len(chars))]
+		randomChar := chars[u.rand.Intn(len(chars))]
 		randomName = randomName + string(randomChar)
 	}
 

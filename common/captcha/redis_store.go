@@ -2,8 +2,9 @@ package captcha
 
 import (
 	"context"
-	"mira/anima/dal"
 	"time"
+
+	"mira/anima/dal"
 
 	rediskey "mira/common/types/redis-key"
 )
@@ -12,17 +13,17 @@ import (
 type RedisStore struct{}
 
 func (r *RedisStore) Set(id string, value string) error {
-	return dal.Redis.Set(context.Background(), rediskey.CaptchaCodeKey+id, value, time.Minute*5).Err()
+	return dal.Redis.Set(context.Background(), rediskey.CaptchaCodeKey()+id, value, time.Minute*5).Err()
 }
 
 func (r *RedisStore) Get(id string, clear bool) string {
-	captcha, err := dal.Redis.Get(context.Background(), rediskey.CaptchaCodeKey+id).Result()
+	captcha, err := dal.Redis.Get(context.Background(), rediskey.CaptchaCodeKey()+id).Result()
 	if err != nil {
 		return ""
 	}
 
 	if clear {
-		if err = dal.Redis.Del(context.Background(), rediskey.CaptchaCodeKey+id).Err(); err != nil {
+		if err = dal.Redis.Del(context.Background(), rediskey.CaptchaCodeKey()+id).Err(); err != nil {
 			return ""
 		}
 	}

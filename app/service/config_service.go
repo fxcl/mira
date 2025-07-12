@@ -235,7 +235,7 @@ func (s *ConfigService) GetConfigCacheByConfigKey(configKey string) dto.ConfigDe
 	ctx := context.Background()
 
 	// If cache is not empty, avoid reading from database to reduce database pressure
-	configCache, err := dal.Redis.HGet(ctx, rediskey.SysConfigKey, configKey).Result()
+	configCache, err := dal.Redis.HGet(ctx, rediskey.SysConfigKey(), configKey).Result()
 	if err != nil {
 		// Log error but continue execution (fallback to database)
 		log.Printf("Redis error when getting config for key %s: %v", configKey, err)
@@ -258,13 +258,13 @@ func (s *ConfigService) GetConfigCacheByConfigKey(configKey string) dto.ConfigDe
 		}
 
 		// Set cache
-		_, err = dal.Redis.HSet(ctx, rediskey.SysConfigKey, configKey, string(configBytes)).Result()
+		_, err = dal.Redis.HSet(ctx, rediskey.SysConfigKey(), configKey, string(configBytes)).Result()
 		if err != nil {
 			// Log error but don't affect return value
 			log.Printf("Failed to set config cache for key %s: %v", configKey, err)
 		} else {
 			// Set cache expiration time (if not already set)
-			dal.Redis.Expire(ctx, rediskey.SysConfigKey, 24*time.Hour)
+			dal.Redis.Expire(ctx, rediskey.SysConfigKey(), 24*time.Hour)
 		}
 	}
 
@@ -277,7 +277,7 @@ func (s *ConfigService) GetConfigCacheByConfigKey(configKey string) dto.ConfigDe
 //   - error: Any error that occurred during refresh, or nil on success
 func (s *ConfigService) RefreshCache() error {
 	ctx := context.Background()
-	err := dal.Redis.Del(ctx, rediskey.SysConfigKey).Err()
+	err := dal.Redis.Del(ctx, rediskey.SysConfigKey()).Err()
 	if err != nil {
 		log.Printf("Failed to refresh config cache: %v", err)
 		return fmt.Errorf("failed to refresh config cache: %w", err)
