@@ -101,7 +101,7 @@ func (ac *AppContainer) LogininforMiddleware() gin.HandlerFunc {
 
 // OperLogMiddleware returns the operation log middleware with its dependencies.
 func (ac *AppContainer) OperLogMiddleware(title string, businessType int) gin.HandlerFunc {
-	return middleware.OperLogMiddleware(ac.OperLogService, title, businessType)
+	return middleware.OperLogMiddleware(ac.OperLogService, title, businessType, security.GetAuthUser)
 }
 
 // HasPerm returns the permission check middleware.

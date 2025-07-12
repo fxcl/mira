@@ -47,7 +47,7 @@ const REQUEST_BUSINESS_TYPE = "businessType"
 
 // Request operation type (specific type) (required for operation log)
 const (
-	_ = iota
+	REQUEST_BUSINESS_TYPE_OTHER = iota
 	REQUEST_BUSINESS_TYPE_INSERT // Add
 	REQUEST_BUSINESS_TYPE_UPDATE // Modify
 	REQUEST_BUSINESS_TYPE_DELETE // Delete

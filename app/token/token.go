@@ -19,6 +19,10 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
+const (
+	UserTokenKey = "user_token"
+)
+
 var (
 	ErrPleaseLoginFirst      = errors.New("please log in first")
 	ErrAuthFormat            = errors.New("authorization format error")
@@ -54,9 +58,13 @@ func GenerateToken(claims *SysUserClaim, user dto.UserTokenResponse) (string, er
 		return "", err
 	}
 
+	var expireTime time.Time
+	if claims.ExpiresAt != nil {
+		expireTime = claims.ExpiresAt.Time
+	}
 	err = dal.Redis.Set(context.Background(), rediskey.UserTokenKey()+claims.Uuid, &UserTokenResponse{
 		UserTokenResponse: user,
-		ExpireTime:        datetime.Datetime{Time: claims.ExpiresAt.Time},
+		ExpireTime:        datetime.Datetime{Time: expireTime},
 	}, time.Minute*time.Duration(config.Data.Token.ExpireTime)).Err()
 	if err != nil {
 		return "", err

@@ -9,8 +9,8 @@ import (
 	"mira/anima/datetime"
 	"mira/anima/response"
 	"mira/app/dto"
-	"mira/app/security"
 	"mira/app/service"
+	"mira/app/token"
 	ipaddress "mira/common/ip-address"
 	responsewriter "mira/common/response-writer"
 	"mira/common/types/constant"
@@ -21,11 +21,11 @@ import (
 // OperLogMiddleware is a middleware for operation logs.
 // title: title of the operation module
 // businessType: operation type, constant.REQUEST_BUSINESS_TYPE_*
-func OperLogMiddleware(operLogService *service.OperLogService, title string, businessType int) gin.HandlerFunc {
+func OperLogMiddleware(operLogService service.OperLogServiceInterface, title string, businessType int, getAuthUser func(ctx *gin.Context) *token.UserTokenResponse) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var operName, deptName string
 
-		if authUser := security.GetAuthUser(ctx); authUser != nil {
+		if authUser := getAuthUser(ctx); authUser != nil {
 			operName = authUser.NickName
 			deptName = authUser.DeptName
 		}
@@ -46,17 +46,33 @@ func OperLogMiddleware(operLogService *service.OperLogService, title string, bus
 
 		param := make(map[string]interface{}, 0)
 
-		ctx.ShouldBind(&param)
-
-		// Because the request body will be consumed after ctx.ShouldBind,
-		// the cached request body needs to be reassigned to ctx.Request.Body.
-		ctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-
-		// Convert query parameters to a map and add them to the request parameters,
-		// using "query-key" format for differentiation.
+		// Convert query parameters to a map.
 		for key, value := range ctx.Request.URL.Query() {
 			param[key] = value
 		}
+
+		// Then, parse the form data to overwrite any query parameters with the same key.
+		// This handles application/x-www-form-urlencoded.
+		if err := ctx.Request.ParseForm(); err == nil {
+			for key, value := range ctx.Request.PostForm {
+				param[key] = value
+			}
+		}
+
+		// For JSON data, unmarshal it into the map.
+		// This will also overwrite any query parameters with the same key.
+		if ctx.ContentType() == "application/json" {
+			var jsonParams map[string]interface{}
+			if err := json.Unmarshal(bodyBytes, &jsonParams); err == nil {
+				for key, value := range jsonParams {
+					param[key] = value
+				}
+			}
+		}
+
+		// Because the request body may have been consumed,
+		// the cached request body needs to be reassigned to ctx.Request.Body.
+		ctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 		operParam, _ := json.Marshal(&param)
 

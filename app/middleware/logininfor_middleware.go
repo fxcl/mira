@@ -18,7 +18,7 @@ import (
 )
 
 // LogininforMiddleware records login information.
-func LogininforMiddleware(logininforService *service.LogininforService) gin.HandlerFunc {
+func LogininforMiddleware(logininforService service.LogininforServiceInterface) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// Because the request body will be consumed after reading, to avoid EOF errors,
 		// the request body needs to be cached and reassigned to ctx.Request.Body after each use.

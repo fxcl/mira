@@ -9,25 +9,26 @@ import (
 
 // Security provides methods for security checks like permission and role verification.
 type Security struct {
-	UserService *service.UserService
+	UserService service.UserServiceInterface
+}
+
+// SecurityInterface defines the methods for security checks.
+type SecurityInterface interface {
+	HasPerm(userId int, perm string) bool
 }
 
 // NewSecurity creates a new Security instance.
-func NewSecurity(userService *service.UserService) *Security {
+func NewSecurity(userService service.UserServiceInterface) *Security {
 	return &Security{UserService: userService}
 }
 
 // Get user id
 func GetAuthUserId(ctx *gin.Context) int {
-	tokenKey, err := token.GetUserTokenKey(ctx)
-	if err != nil {
+	val, ok := ctx.Get(token.UserTokenKey)
+	if !ok {
 		return 0
 	}
-	authUser, err := token.GetAuthUser(ctx.Request.Context(), tokenKey)
-	if err != nil {
-		return 0
-	}
-	return authUser.UserId
+	return val.(*token.UserTokenResponse).UserId
 }
 
 // Get department id
