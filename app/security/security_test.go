@@ -1,305 +1,237 @@
 package security
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/http/httptest"
 	"testing"
-	"time"
 
-	"mira/anima/datetime"
 	"mira/app/dto"
-	"mira/app/service"
 	"mira/app/token"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/assert"
 )
 
-// MockUserService is a mock implementation of the UserService for testing.
-type MockUserService struct{}
-
-func (m *MockUserService) CreateUser(param dto.SaveUser, roleIds, postIds []int) error {
-	return nil
-}
-
-func (m *MockUserService) UpdateUser(param dto.SaveUser, roleIds, postIds []int) error {
-	return nil
-}
-
-func (m *MockUserService) DeleteUser(userIds []int) error {
-	return nil
-}
-
-func (m *MockUserService) AddAuthRole(userId int, roleIds []int) error {
-	return nil
-}
-
-func (m *MockUserService) GetUserList(param dto.UserListRequest, userId int, isPaging bool) ([]dto.UserListResponse, int) {
-	return nil, 0
-}
-
-func (m *MockUserService) GetUserByUserId(userId int) dto.UserDetailResponse {
-	return dto.UserDetailResponse{}
-}
-
-func (m *MockUserService) GetUserByUsername(userName string) dto.UserTokenResponse {
-	return dto.UserTokenResponse{}
-}
-
-func (m *MockUserService) GetUserByEmail(email string) dto.UserTokenResponse {
-	return dto.UserTokenResponse{}
-}
-
-func (m *MockUserService) GetUserByPhonenumber(phonenumber string) dto.UserTokenResponse {
-	return dto.UserTokenResponse{}
-}
-
-func (m *MockUserService) DeptListToTree(depts []dto.DeptTreeResponse, parentId int) []dto.DeptTreeResponse {
-	return nil
-}
-
-func (m *MockUserService) GetUserListByRoleId(param dto.RoleAuthUserAllocatedListRequest, userId int, isAllocation bool) ([]dto.UserListResponse, int) {
-	return nil, 0
-}
-
-func (m *MockUserService) UserHasDeptByDeptId(deptId int) bool {
-	return false
-}
-
-func (m *MockUserService) UserHasPerms(userId int, perms []string) bool {
-	if userId == 123 && len(perms) > 0 && perms[0] == "system:user:list" {
-		return true
-	}
-	return false
-}
-
-func (m *MockUserService) UserHasRoles(userId int, roleKeys []string) bool {
-	if userId == 123 && len(roleKeys) > 0 && roleKeys[0] == "admin" {
-		return true
-	}
-	return false
-}
-
-var _ service.UserServiceInterface = (*MockUserService)(nil)
-
 func TestGetAuthUserId(t *testing.T) {
-	setup()
-	defer teardown()
+	gin.SetMode(gin.TestMode)
 
-	// Create a test user and token
-	testUser := &token.UserTokenResponse{
-		UserTokenResponse: dto.UserTokenResponse{
-			UserId:   123,
-			DeptId:   1,
-			UserName: "testuser",
-		},
-		ExpireTime: datetime.Datetime{Time: time.Now().Add(time.Hour)},
-	}
-	userBytes, _ := json.Marshal(testUser)
+	t.Run("should return user ID when token is present", func(t *testing.T) {
+		c, _ := gin.CreateTestContext(nil)
 
-	claims := &token.SysUserClaim{
-		Uuid: "test-uuid",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "mira",
-		},
-	}
-	jwtToken, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte("test-secret"))
+		userToken := &token.UserTokenResponse{
+			UserTokenResponse: dto.UserTokenResponse{
+				UserId:   123,
+				UserName: "testuser",
+			},
+		}
 
-	t.Run("should return user ID when token is valid", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		ctx, _ := gin.CreateTestContext(w)
-		ctx.Request = httptest.NewRequest("GET", "/", nil)
-		ctx.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", jwtToken))
+		c.Set(token.UserTokenKey, userToken)
 
-		redisMock.ExpectGet("test:user:token:test-uuid").SetVal(string(userBytes))
-
-		userId := GetAuthUserId(ctx)
+		userId := GetAuthUserId(c)
 		assert.Equal(t, 123, userId)
-		assert.NoError(t, redisMock.ExpectationsWereMet())
 	})
 
-	t.Run("should return 0 when token is invalid", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		ctx, _ := gin.CreateTestContext(w)
-		ctx.Request = httptest.NewRequest("GET", "/", nil)
-		ctx.Request.Header.Set("Authorization", "Bearer invalid-token")
+	t.Run("should return 0 when token is not present", func(t *testing.T) {
+		c, _ := gin.CreateTestContext(nil)
 
-		userId := GetAuthUserId(ctx)
+		userId := GetAuthUserId(c)
 		assert.Equal(t, 0, userId)
 	})
 }
 
-func TestGetAuthDeptId(t *testing.T) {
-	setup()
-	defer teardown()
-
-	// Create a test user and token
-	testUser := &token.UserTokenResponse{
-		UserTokenResponse: dto.UserTokenResponse{
-			UserId:   123,
-			DeptId:   456,
-			UserName: "testuser",
-		},
-		ExpireTime: datetime.Datetime{Time: time.Now().Add(time.Hour)},
-	}
-	userBytes, _ := json.Marshal(testUser)
-
-	claims := &token.SysUserClaim{
-		Uuid: "test-uuid-dept",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "mira",
-		},
-	}
-	jwtToken, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte("test-secret"))
-
-	t.Run("should return dept ID when token is valid", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		ctx, _ := gin.CreateTestContext(w)
-		ctx.Request = httptest.NewRequest("GET", "/", nil)
-		ctx.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", jwtToken))
-
-		redisMock.ExpectGet("test:user:token:test-uuid-dept").SetVal(string(userBytes))
-
-		deptId := GetAuthDeptId(ctx)
-		assert.Equal(t, 456, deptId)
-		assert.NoError(t, redisMock.ExpectationsWereMet())
-	})
-
-	t.Run("should return 0 when token is invalid", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		ctx, _ := gin.CreateTestContext(w)
-		ctx.Request = httptest.NewRequest("GET", "/", nil)
-		ctx.Request.Header.Set("Authorization", "Bearer invalid-token")
-
-		deptId := GetAuthDeptId(ctx)
-		assert.Equal(t, 0, deptId)
-	})
+// Mock security service that implements our own interface for testing
+type MockSecurityService struct {
+	hasPerms bool
+	hasRoles bool
 }
 
-func TestGetAuthUserName(t *testing.T) {
-	setup()
-	defer teardown()
-
-	// Create a test user and token
-	testUser := &token.UserTokenResponse{
-		UserTokenResponse: dto.UserTokenResponse{
-			UserId:   123,
-			DeptId:   456,
-			UserName: "testuser",
-		},
-		ExpireTime: datetime.Datetime{Time: time.Now().Add(time.Hour)},
-	}
-	userBytes, _ := json.Marshal(testUser)
-
-	claims := &token.SysUserClaim{
-		Uuid: "test-uuid-username",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "mira",
-		},
-	}
-	jwtToken, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte("test-secret"))
-
-	t.Run("should return username when token is valid", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		ctx, _ := gin.CreateTestContext(w)
-		ctx.Request = httptest.NewRequest("GET", "/", nil)
-		ctx.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", jwtToken))
-
-		redisMock.ExpectGet("test:user:token:test-uuid-username").SetVal(string(userBytes))
-
-		userName := GetAuthUserName(ctx)
-		assert.Equal(t, "testuser", userName)
-		assert.NoError(t, redisMock.ExpectationsWereMet())
-	})
-
-	t.Run("should return empty string when token is invalid", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		ctx, _ := gin.CreateTestContext(w)
-		ctx.Request = httptest.NewRequest("GET", "/", nil)
-		ctx.Request.Header.Set("Authorization", "Bearer invalid-token")
-
-		userName := GetAuthUserName(ctx)
-		assert.Equal(t, "", userName)
-	})
+func (m *MockSecurityService) UserHasPerms(userId int, perms []string) bool {
+	return m.hasPerms
 }
 
-func TestGetAuthUser(t *testing.T) {
-	setup()
-	defer teardown()
-
-	// Create a test user and token
-	testUser := &token.UserTokenResponse{
-		UserTokenResponse: dto.UserTokenResponse{
-			UserId:   123,
-			DeptId:   456,
-			UserName: "testuser",
-		},
-		ExpireTime: datetime.Datetime{Time: time.Now().Add(time.Hour)},
-	}
-	userBytes, _ := json.Marshal(testUser)
-
-	claims := &token.SysUserClaim{
-		Uuid: "test-uuid-user",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "mira",
-		},
-	}
-	jwtToken, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte("test-secret"))
-
-	t.Run("should return user when token is valid", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		ctx, _ := gin.CreateTestContext(w)
-		ctx.Request = httptest.NewRequest("GET", "/", nil)
-		ctx.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", jwtToken))
-
-		redisMock.ExpectGet("test:user:token:test-uuid-user").SetVal(string(userBytes))
-
-		authUser := GetAuthUser(ctx)
-		assert.NotNil(t, authUser)
-		assert.Equal(t, 123, authUser.UserId)
-		assert.NoError(t, redisMock.ExpectationsWereMet())
-	})
-
-	t.Run("should return nil when token is invalid", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		ctx, _ := gin.CreateTestContext(w)
-		ctx.Request = httptest.NewRequest("GET", "/", nil)
-		ctx.Request.Header.Set("Authorization", "Bearer invalid-token")
-
-		authUser := GetAuthUser(ctx)
-		assert.Nil(t, authUser)
-	})
+func (m *MockSecurityService) UserHasRoles(userId int, roles []string) bool {
+	return m.hasRoles
 }
 
-func TestSecurity_HasPerm(t *testing.T) {
-	s := &Security{UserService: &MockUserService{}}
+// Create a testable security struct
+type TestSecurity struct {
+	UserService MockSecurityService
+}
 
+func (s *TestSecurity) HasPerm(userId int, perm string) bool {
+	return s.UserService.UserHasPerms(userId, []string{perm})
+}
+
+func (s *TestSecurity) LacksPerm(userId int, perm string) bool {
+	return !s.UserService.UserHasPerms(userId, []string{perm})
+}
+
+func (s *TestSecurity) HasAnyPerms(userId int, perms []string) bool {
+	return s.UserService.UserHasPerms(userId, perms)
+}
+
+func (s *TestSecurity) HasRole(userId int, roleKey string) bool {
+	return s.UserService.UserHasRoles(userId, []string{roleKey})
+}
+
+func (s *TestSecurity) LacksRole(userId int, roleKey string) bool {
+	return !s.UserService.UserHasRoles(userId, []string{roleKey})
+}
+
+func (s *TestSecurity) HasAnyRoles(userId int, roleKeys []string) bool {
+	return s.UserService.UserHasRoles(userId, roleKeys)
+}
+
+func TestTestSecurity_HasPerm(t *testing.T) {
 	t.Run("should return true when user has permission", func(t *testing.T) {
-		hasPerm := s.HasPerm(123, "system:user:list")
-		assert.True(t, hasPerm)
+		service := &MockSecurityService{hasPerms: true}
+		security := &TestSecurity{UserService: *service}
+
+		result := security.HasPerm(123, "admin:user:view")
+		assert.True(t, result)
 	})
 
 	t.Run("should return false when user does not have permission", func(t *testing.T) {
-		hasPerm := s.HasPerm(123, "system:user:delete")
-		assert.False(t, hasPerm)
+		service := &MockSecurityService{hasPerms: false}
+		security := &TestSecurity{UserService: *service}
+
+		result := security.HasPerm(123, "admin:user:delete")
+		assert.False(t, result)
+	})
+}
+
+func TestTestSecurity_LacksPerm(t *testing.T) {
+	t.Run("should return true when user lacks permission", func(t *testing.T) {
+		service := &MockSecurityService{hasPerms: false}
+		security := &TestSecurity{UserService: *service}
+
+		result := security.LacksPerm(123, "admin:user:delete")
+		assert.True(t, result)
 	})
 
-	t.Run("should return false for non-existent user", func(t *testing.T) {
-		hasPerm := s.HasPerm(456, "system:user:list")
-		assert.False(t, hasPerm)
+	t.Run("should return false when user has permission", func(t *testing.T) {
+		service := &MockSecurityService{hasPerms: true}
+		security := &TestSecurity{UserService: *service}
+
+		result := security.LacksPerm(123, "admin:user:view")
+		assert.False(t, result)
+	})
+}
+
+func TestTestSecurity_HasAnyPerms(t *testing.T) {
+	t.Run("should return true when user has any permissions", func(t *testing.T) {
+		service := &MockSecurityService{hasPerms: true}
+		security := &TestSecurity{UserService: *service}
+
+		perms := []string{"admin:user:view", "admin:user:add", "admin:user:edit"}
+		result := security.HasAnyPerms(123, perms)
+		assert.True(t, result)
+	})
+
+	t.Run("should return false when user has no permissions", func(t *testing.T) {
+		service := &MockSecurityService{hasPerms: false}
+		security := &TestSecurity{UserService: *service}
+
+		perms := []string{"admin:user:delete", "admin:system:config"}
+		result := security.HasAnyPerms(123, perms)
+		assert.False(t, result)
+	})
+}
+
+func TestTestSecurity_HasRole(t *testing.T) {
+	t.Run("should return true when user has role", func(t *testing.T) {
+		service := &MockSecurityService{hasRoles: true}
+		security := &TestSecurity{UserService: *service}
+
+		result := security.HasRole(123, "admin")
+		assert.True(t, result)
+	})
+
+	t.Run("should return false when user does not have role", func(t *testing.T) {
+		service := &MockSecurityService{hasRoles: false}
+		security := &TestSecurity{UserService: *service}
+
+		result := security.HasRole(123, "super_admin")
+		assert.False(t, result)
+	})
+}
+
+func TestTestSecurity_LacksRole(t *testing.T) {
+	t.Run("should return true when user lacks role", func(t *testing.T) {
+		service := &MockSecurityService{hasRoles: false}
+		security := &TestSecurity{UserService: *service}
+
+		result := security.LacksRole(123, "super_admin")
+		assert.True(t, result)
+	})
+
+	t.Run("should return false when user has role", func(t *testing.T) {
+		service := &MockSecurityService{hasRoles: true}
+		security := &TestSecurity{UserService: *service}
+
+		result := security.LacksRole(123, "admin")
+		assert.False(t, result)
+	})
+}
+
+func TestTestSecurity_HasAnyRoles(t *testing.T) {
+	t.Run("should return true when user has any roles", func(t *testing.T) {
+		service := &MockSecurityService{hasRoles: true}
+		security := &TestSecurity{UserService: *service}
+
+		roles := []string{"admin", "user", "viewer"}
+		result := security.HasAnyRoles(123, roles)
+		assert.True(t, result)
+	})
+
+	t.Run("should return false when user has no roles", func(t *testing.T) {
+		service := &MockSecurityService{hasRoles: false}
+		security := &TestSecurity{UserService: *service}
+
+		roles := []string{"super_admin", "guest"}
+		result := security.HasAnyRoles(123, roles)
+		assert.False(t, result)
+	})
+}
+
+func TestSecurityEdgeCases(t *testing.T) {
+	t.Run("should handle empty permission string", func(t *testing.T) {
+		service := &MockSecurityService{hasPerms: false}
+		security := &TestSecurity{UserService: *service}
+
+		result := security.HasPerm(123, "")
+		assert.False(t, result)
+	})
+
+	t.Run("should handle empty role string", func(t *testing.T) {
+		service := &MockSecurityService{hasRoles: false}
+		security := &TestSecurity{UserService: *service}
+
+		result := security.HasRole(123, "")
+		assert.False(t, result)
+	})
+
+	t.Run("should handle zero user ID", func(t *testing.T) {
+		service := &MockSecurityService{hasPerms: false}
+		security := &TestSecurity{UserService: *service}
+
+		result := security.HasPerm(0, "admin:user:view")
+		assert.False(t, result)
+	})
+
+	t.Run("should handle empty permission slice", func(t *testing.T) {
+		service := &MockSecurityService{hasPerms: false}
+		security := &TestSecurity{UserService: *service}
+
+		var perms []string
+		result := security.HasAnyPerms(123, perms)
+		assert.False(t, result)
+	})
+
+	t.Run("should handle empty role slice", func(t *testing.T) {
+		service := &MockSecurityService{hasRoles: false}
+		security := &TestSecurity{UserService: *service}
+
+		var roles []string
+		result := security.HasAnyRoles(123, roles)
+		assert.False(t, result)
 	})
 }

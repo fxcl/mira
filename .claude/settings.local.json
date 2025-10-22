@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(go test:*)",
+      "Bash(chmod:*)",
+      "Bash(./test_runner.sh:*)",
+      "Bash(go run:*)",
+      "mcp__shrimp-task-manager__process_thought",
+      "mcp__shrimp-task-manager__analyze_task",
+      "mcp__shrimp-task-manager__reflect_task",
+      "Skill(research-methodology)",
+      "WebFetch(domain:golang.org)",
+      "WebFetch(domain:pkg.go.dev)",
+      "WebSearch",
+      "WebFetch(domain:gin-gonic.com)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
