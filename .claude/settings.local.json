@@ -13,7 +13,15 @@
       "WebFetch(domain:golang.org)",
       "WebFetch(domain:pkg.go.dev)",
       "WebSearch",
-      "WebFetch(domain:gin-gonic.com)"
+      "WebFetch(domain:gin-gonic.com)",
+      "mcp__shrimp-task-manager__research_mode",
+      "WebFetch(domain:gorm.io)",
+      "WebFetch(domain:github.com)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(go build:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
